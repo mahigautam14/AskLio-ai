@@ -4,7 +4,7 @@ import { authAPI } from '../services/api';
 import useStore from '../store/useStore';
 import toast from 'react-hot-toast';
 import { HiArrowRight, HiSparkles, HiShieldCheck, HiCode } from 'react-icons/hi';
-
+// const API_URL = import.meta.env.VITE_API_URL;
 export default function LoginPage() {
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
