@@ -220,7 +220,7 @@ async def send_message(
         # Dynamically read environment variables
         api_key = os.getenv("LLM_API_KEY", "")
         api_url = os.getenv("LLM_API_URL", "https://api.groq.com/openai/v1/chat/completions")
-        model_name = os.getenv("LLM_MODEL", "llama-3.3-70b-versatile")
+        model_name = os.getenv("LLM_MODEL", "openai/gpt-oss-120b")
 
         full_reply = ""
         headers = {
