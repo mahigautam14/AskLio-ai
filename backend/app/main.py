@@ -1,7 +1,4 @@
 from dotenv import load_dotenv
-import os
-
-# Load .env at application startup
 load_dotenv()
 
 from fastapi import FastAPI
@@ -30,12 +27,11 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:5173",
         "http://127.0.0.1:5173",
-<<<<<<< HEAD
+        "https://asklio-chat.vercel.app",
+        "https://asklio-chat-ff21g4k2o-mahis-projects-86b8e89b.vercel.app",
         "https://asklio-chat-24ej1xdkn-mahis-projects-86b8e89b.vercel.app",
-=======
-        "https://asklio-chat.vercel.app"
->>>>>>> 112712a21c4c9048be4e0a89f225da44f77b2eea
     ],
+    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -47,13 +43,4 @@ app.include_router(chat_router, prefix="/api/chat", tags=["Chat"])
 
 @app.get("/")
 async def root():
-<<<<<<< HEAD
     return {"message": "AskLio API running with PostgreSQL", "status": "healthy"}
-=======
-    return {"message": "AskLio backend is running"}
-
-
-@app.get("/api/health")
-async def health():
-    return {"status": "healthy", "service": "AskLio API"}
->>>>>>> 112712a21c4c9048be4e0a89f225da44f77b2eea
