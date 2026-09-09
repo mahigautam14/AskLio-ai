@@ -1,31 +1,56 @@
 import os
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy.orm import sessionmaker, declarative_base
+from urllib.parse import urlsplit, urlunsplit
 
-DATABASE_URL = os.getenv("DATABASE_URL", "")
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.orm import declarative_base, sessionmaker
 
-# Render / local dono ke liye driver fix
-if DATABASE_URL.startswith("postgres://"):
-    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+asyncpg://", 1)
-elif DATABASE_URL.startswith("postgresql://") and "+asyncpg" not in DATABASE_URL:
-    DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
 
-print(f"[DB] Connecting with URL host/port: {DATABASE_URL.split('@')[-1] if '@' in DATABASE_URL else DATABASE_URL}")
+raw_database_url = os.getenv("DATABASE_URL", "").strip()
+if not raw_database_url:
+    raise RuntimeError("DATABASE_URL is required")
+
+# Render/Postgres may provide postgres:// or postgresql:// URLs.
+# SQLAlchemy's async engine requires the asyncpg driver.
+if raw_database_url.startswith("postgres://"):
+    DATABASE_URL = raw_database_url.replace("postgres://", "postgresql+asyncpg://", 1)
+elif raw_database_url.startswith("postgresql://") and "+asyncpg" not in raw_database_url:
+    DATABASE_URL = raw_database_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+else:
+    DATABASE_URL = raw_database_url
+
+# asyncpg does not understand sslmode as a libpq URL query parameter.
+# Render's managed Postgres requires TLS, so translate it to an asyncpg option.
+parts = urlsplit(DATABASE_URL)
+query_pairs = [pair for pair in parts.query.split("&") if pair]
+kept_pairs = []
+sslmode = None
+for pair in query_pairs:
+    key, sep, value = pair.partition("=")
+    if key.lower() == "sslmode":
+        sslmode = value.lower() or "require"
+    elif key:
+        kept_pairs.append(pair)
+
+DATABASE_URL = urlunsplit(
+    (parts.scheme, parts.netloc, parts.path, "&".join(kept_pairs), parts.fragment)
+)
+
+connect_args = {}
+if sslmode and sslmode not in {"disable", "allow", "prefer"}:
+    connect_args["ssl"] = "require"
 
 engine = create_async_engine(
     DATABASE_URL,
     echo=False,
     pool_pre_ping=True,
+    connect_args=connect_args,
 )
 
-# YE NAAM zaroori hai — chat_routes isko import karta hai
 async_session = sessionmaker(
     bind=engine,
     class_=AsyncSession,
     expire_on_commit=False,
 )
-
-# alias (agar kahin AsyncSessionLocal use ho)
 AsyncSessionLocal = async_session
 
 Base = declarative_base()
@@ -34,12 +59,9 @@ Base = declarative_base()
 async def init_db():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    print("PostgreSQL Database initialized successfully")
+    print("PostgreSQL database initialized successfully")
 
 
 async def get_db():
     async with async_session() as session:
-        try:
-            yield session
-        finally:
-            await session.close()
+        yield session
