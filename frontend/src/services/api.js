@@ -1,14 +1,10 @@
 import axios from 'axios';
 
+// Agar Vercel env variable na mile, toh DIRECT Render Backend URL use hoga
+const API_URL = import.meta.env.VITE_API_URL || 'https://asklio-ai.onrender.com';
 
-
-// const API_BASE = '/api';
-// const API_BASE = `${import.meta.env.VITE_API_URL}/api`;
-// const API_BASE = 'https://asklio-ai.onrender.com/api';
- const API_BASE = 'http://127.0.0.1:8000/api'
-
-const api = axios.create({
-  baseURL: API_BASE,
+export const api = axios.create({
+  baseURL: API_URL,
   headers: {
     'Content-Type': 'application/json',
   },
