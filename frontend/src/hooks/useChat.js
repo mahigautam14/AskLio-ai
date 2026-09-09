@@ -217,3 +217,4 @@ export function useChat() {
     renameConversation,
   };
 }
+// frontend/src/hooks/useAuth.js

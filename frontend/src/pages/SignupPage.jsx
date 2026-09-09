@@ -1,181 +1,168 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { HiSparkles, HiArrowRight, HiEye, HiEyeOff, HiCheck } from 'react-icons/hi';
 import { authAPI } from '../services/api';
 import useStore from '../store/useStore';
-import toast from 'react-hot-toast';
-import { HiArrowRight, HiSparkles, HiShieldCheck, HiCode } from 'react-icons/hi';
+
+function getErrorMessage(err) {
+  const detail = err?.response?.data?.detail;
+  if (!detail) return 'Signup failed. Please try again.';
+  if (Array.isArray(detail)) {
+    return detail
+      .map((i) => (typeof i === 'string' ? i : i?.msg || JSON.stringify(i)))
+      .join(', ');
+  }
+  if (typeof detail === 'string') return detail;
+  return 'Signup failed';
+}
 
 export default function SignupPage() {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { setAuth } = useStore();
   const navigate = useNavigate();
+  const login = useStore((state) => state.login);
+
+  const passwordChecks = [
+    { label: 'At least 6 characters', valid: password.length >= 6 },
+    { label: 'Contains a number', valid: /\d/.test(password) },
+  ];
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    if (!username.trim() || !email.trim() || !password.trim()) {
-      toast.error('Please fill in all fields');
-      return;
-    }
-
-    if (username.trim().length < 3) {
-      toast.error('Username must be at least 3 characters');
-      return;
-    }
-
-    if (password.length < 6) {
-      toast.error('Password must be at least 6 characters');
-      return;
-    }
-
+    setError('');
     setLoading(true);
-    try {
-      const response = await authAPI.signup({
-        username: username.trim(),
-        email: email.trim(),
-        password,
-      });
 
-      setAuth(response.data.user, response.data.access_token);
-      toast.success('Account created successfully!');
-      navigate('/chat');
-    } catch (error) {
-      toast.error(error.response?.data?.detail || 'Signup failed');
+    try {
+      const res = await authAPI.signup({ username, email, password });
+      const { access_token, user } = res.data;
+      login(access_token, user);
+      navigate('/chat', { replace: true });
+    } catch (err) {
+      console.error('Signup error:', err?.response?.data || err);
+      setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-teal-950 text-white overflow-hidden relative">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(37,99,235,0.20),_transparent_30%),radial-gradient(circle_at_bottom_right,_rgba(14,165,233,0.12),_transparent_28%)]" />
-      <div className="relative mx-auto grid min-h-screen max-w-7xl lg:grid-cols-2">
-        {/* Left side */}
-        <div className="hidden lg:flex flex-col justify-center px-8 xl:px-12">
-          <Link to="/" className="mb-8 inline-flex items-center gap-3">
-            <div className="h-12 w-12 rounded-2xl bg-teal-600 flex items-center justify-center font-bold shadow-lg shadow-teal-600/30">
-              A
-            </div>
-            <div>
-              <div className="text-xl font-semibold leading-none">AskLio</div>
-              <div className="text-xs text-teal-500 mt-1">AI Chat Assistant</div>
-            </div>
-          </Link>
+    <div className="min-h-screen bg-[#0a0118] text-white flex items-center justify-center relative overflow-hidden">
+      <div className="absolute inset-0 bg-gradient-to-br from-[#0a0118] via-[#1a0333] to-[#0a0118]" />
 
-          <div className="max-w-xl">
-            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-teal-500/20 bg-teal-500/10 px-4 py-2 text-sm text-teal-200">
-              <HiSparkles className="w-4 h-4" />
-              Create your account in under a minute
-            </div>
-
-            <h1 className="text-5xl font-bold tracking-tight leading-tight">
-              Start chatting with AskLio.
-            </h1>
-            <p className="mt-5 max-w-lg text-lg leading-8 text-teal-300">
-              Save conversations, stream responses, and keep your work organized with a clean interface.
-            </p>
-
-            <div className="mt-10 grid gap-4 sm:grid-cols-2">
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-                <HiShieldCheck className="w-5 h-5 text-teal-300" />
-                <h3 className="mt-3 font-semibold">Secure signup</h3>
-                <p className="mt-2 text-sm leading-6 text-teal-300">
-                  JWT auth with SQLite storage for users and chats.
-                </p>
-              </div>
-
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-                <HiCode className="w-5 h-5 text-teal-300" />
-                <h3 className="mt-3 font-semibold">Developer-friendly</h3>
-                <p className="mt-2 text-sm leading-6 text-teal-300">
-                  Built to look professional in interviews and demos.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Right side form */}
-        <div className="flex items-center justify-center px-4 py-10 sm:px-6 lg:px-8">
-          <div className="w-full max-w-md rounded-3xl border border-white/10 bg-white/95 p-6 text-teal-900 shadow-2xl backdrop-blur-xl sm:p-8">
-            <div className="text-center">
-              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-teal-600 text-white text-xl font-bold shadow-lg shadow-teal-600/20">
+      <motion.div
+        initial={{ opacity: 0, y: 30 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="relative z-10 w-full max-w-md mx-4"
+      >
+        <div className="rounded-3xl border border-white/10 bg-slate-900/70 p-8 sm:p-10 shadow-2xl backdrop-blur-xl">
+          <div className="text-center mb-8">
+            <Link to="/" className="inline-flex mb-4">
+              <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-fuchsia-500 to-pink-500 flex items-center justify-center font-bold text-xl">
                 A
               </div>
-              <h1 className="text-2xl font-bold">Create account</h1>
-              <p className="mt-2 text-sm text-teal-500">
-                Join AskLio and start chatting
-              </p>
+            </Link>
+            <h1 className="text-2xl font-bold">Create your account</h1>
+            <p className="mt-2 text-sm text-slate-400">Join AskLio and start chatting</p>
+          </div>
+
+          {error && (
+            <div className="mb-6 rounded-xl bg-red-500/10 border border-red-500/20 px-4 py-3 text-sm text-red-300 text-center">
+              {String(error)}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div>
+              <label className="block text-sm text-slate-300 mb-2">Username</label>
+              <input
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white focus:border-fuchsia-500 focus:outline-none"
+                required
+              />
             </div>
 
-            <form onSubmit={handleSubmit} className="mt-8 space-y-4">
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-teal-700">
-                  Username
-                </label>
-                <input
-                  type="text"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  className="w-full rounded-xl border border-teal-300 bg-white px-4 py-3 text-teal-900 outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20"
-                  placeholder="johndoe"
-                  required
-                  minLength={3}
-                />
-              </div>
+            <div>
+              <label className="block text-sm text-slate-300 mb-2">Email</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white focus:border-fuchsia-500 focus:outline-none"
+                required
+              />
+            </div>
 
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-teal-700">
-                  Email
-                </label>
+            <div>
+              <label className="block text-sm text-slate-300 mb-2">Password</label>
+              <div className="relative">
                 <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full rounded-xl border border-teal-300 bg-white px-4 py-3 text-teal-900 outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20"
-                  placeholder="you@example.com"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-teal-700">
-                  Password
-                </label>
-                <input
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full rounded-xl border border-teal-300 bg-white px-4 py-3 text-teal-900 outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20"
-                  placeholder="••••••••"
+                  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 pr-12 text-sm text-white focus:border-fuchsia-500 focus:outline-none"
                   required
-                  minLength={6}
                 />
-                <p className="mt-1 text-xs text-teal-500">At least 6 characters</p>
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
+                >
+                  {showPassword ? <HiEyeOff className="w-5 h-5" /> : <HiEye className="w-5 h-5" />}
+                </button>
               </div>
 
-              <button
-                type="submit"
-                disabled={loading}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-teal-600 px-4 py-3 font-semibold text-white transition hover:bg-teal-500 disabled:cursor-not-allowed disabled:opacity-70"
-              >
-                {loading ? 'Creating account...' : 'Sign Up'}
-                {!loading && <HiArrowRight className="w-4 h-4" />}
-              </button>
-            </form>
+              {password.length > 0 && (
+                <div className="mt-2 space-y-1">
+                  {passwordChecks.map((c) => (
+                    <div key={c.label} className="flex items-center gap-2 text-xs">
+                      <div
+                        className={`w-4 h-4 rounded-full flex items-center justify-center ${
+                          c.valid
+                            ? 'bg-fuchsia-500/20 text-fuchsia-400'
+                            : 'bg-slate-700 text-slate-500'
+                        }`}
+                      >
+                        {c.valid && <HiCheck className="w-3 h-3" />}
+                      </div>
+                      <span className={c.valid ? 'text-fuchsia-300' : 'text-slate-500'}>
+                        {c.label}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
 
-            <p className="mt-6 text-center text-sm text-teal-500">
-              Already have an account?{' '}
-              <Link to="/login" className="font-semibold text-teal-600 hover:text-teal-700">
-                Sign in
-              </Link>
-            </p>
-          </div>
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full rounded-xl bg-gradient-to-r from-fuchsia-600 via-purple-600 to-pink-600 py-3.5 font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {loading ? (
+                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : (
+                <>
+                  Create account <HiArrowRight className="w-4 h-4" />
+                </>
+              )}
+            </button>
+          </form>
+
+          <p className="text-center text-sm text-slate-400 mt-6">
+            Already have an account?{' '}
+            <Link to="/login" className="text-fuchsia-400 font-medium">
+              Sign in →
+            </Link>
+          </p>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 }

@@ -1,152 +1,192 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { HiSparkles, HiArrowRight, HiEye, HiEyeOff } from 'react-icons/hi';
 import { authAPI } from '../services/api';
 import useStore from '../store/useStore';
-import toast from 'react-hot-toast';
-import { HiArrowRight, HiSparkles, HiShieldCheck, HiCode } from 'react-icons/hi';
-// const API_URL = import.meta.env.VITE_API_URL;
+
+function getErrorMessage(err) {
+  const detail = err?.response?.data?.detail;
+  if (!detail) return err?.message || 'Login failed. Please try again.';
+  if (Array.isArray(detail)) {
+    return detail
+      .map((i) => (typeof i === 'string' ? i : i?.msg || JSON.stringify(i)))
+      .join(', ');
+  }
+  if (typeof detail === 'string') return detail;
+  if (typeof detail === 'object') return detail.msg || JSON.stringify(detail);
+  return 'Login failed';
+}
+
 export default function LoginPage() {
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { setAuth } = useStore();
   const navigate = useNavigate();
+
+  // ✅ Use Zustand store (NOT useAuth)
+  const login = useStore((state) => state.login);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    if (!identifier.trim() || !password.trim()) {
-      toast.error('Please fill in all fields');
-      return;
-    }
-
+    setError('');
     setLoading(true);
-    try {
-      const response = await authAPI.login({
-        identifier,
-        password,
-      });
 
-      setAuth(response.data.user, response.data.access_token);
-      toast.success('Welcome Back!');
-      navigate('/chat');
-    } catch (error) {
-      toast.error(error.response?.data?.detail || 'Login failed');
+    try {
+      const res = await authAPI.login({ identifier, password });
+      const { access_token, user } = res.data;
+
+      // This updates the store → App.jsx will allow /chat
+      login(access_token, user);
+
+      navigate('/chat', { replace: true });
+    } catch (err) {
+      console.error('Login error:', err?.response?.data || err);
+      setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-teal-950 text-white overflow-hidden relative">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(37,99,235,0.20),_transparent_30%),radial-gradient(circle_at_bottom_right,_rgba(14,165,233,0.12),_transparent_28%)]" />
-      <div className="relative mx-auto grid min-h-screen max-w-7xl lg:grid-cols-2">
-        {/* Left side */}
-        <div className="hidden lg:flex flex-col justify-center px-8 xl:px-12">
-          <Link to="/" className="mb-8 inline-flex items-center gap-3">
-            <div className="h-12 w-12 rounded-2xl bg-teal-600 flex items-center justify-center font-bold shadow-lg shadow-teal-600/30">
-              A
-            </div>
-            <div>
-              <div className="text-xl font-semibold leading-none">AskLio</div>
-              <div className="text-xs text-teal-500 mt-1">AI Chat Assistant</div>
-            </div>
-          </Link>
+    <div className="min-h-screen bg-[#0a0118] text-white flex items-center justify-center relative overflow-hidden">
+      <div className="absolute inset-0 bg-gradient-to-br from-[#0a0118] via-[#1a0333] to-[#0a0118]" />
+      <div className="absolute inset-0 opacity-20 bg-[linear-gradient(to_right,rgba(217,70,239,0.05)_1px,transparent_1px),linear-gradient(to_bottom,rgba(217,70,239,0.05)_1px,transparent_1px)] bg-[size:60px_60px]" />
 
-          <div className="max-w-xl">
-            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-teal-500/20 bg-teal-500/10 px-4 py-2 text-sm text-teal-200">
-              <HiSparkles className="w-4 h-4" />
-              Secure, fast, and interview-ready
-            </div>
+      <motion.div
+        className="absolute -top-32 -left-32 w-96 h-96 rounded-full bg-fuchsia-600/20 blur-[120px]"
+        animate={{ scale: [1, 1.2, 1] }}
+        transition={{ duration: 8, repeat: Infinity }}
+      />
+      <motion.div
+        className="absolute -bottom-32 -right-32 w-96 h-96 rounded-full bg-pink-500/15 blur-[120px]"
+        animate={{ scale: [1.2, 1, 1.2] }}
+        transition={{ duration: 10, repeat: Infinity }}
+      />
 
-            <h1 className="text-5xl font-bold tracking-tight leading-tight">
-              Welcome back to AskLio.
-            </h1>
-            <p className="mt-5 max-w-lg text-lg leading-8 text-teal-300">
-              Sign in to continue your conversations, see chat history, and get streaming AI responses in a clean workspace.
-            </p>
-
-            <div className="mt-10 grid gap-4 sm:grid-cols-2">
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-                <HiShieldCheck className="w-5 h-5 text-teal-300" />
-                <h3 className="mt-3 font-semibold">JWT secured</h3>
-                <p className="mt-2 text-sm leading-6 text-teal-300">
-                  Protected routes and token-based auth for your sessions.
-                </p>
-              </div>
-
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-                <HiCode className="w-5 h-5 text-teal-300" />
-                <h3 className="mt-3 font-semibold">Great for coding</h3>
-                <p className="mt-2 text-sm leading-6 text-teal-300">
-                  Markdown, code blocks, and copy-ready formatting built in.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Right side form */}
-        <div className="flex items-center justify-center px-4 py-10 sm:px-6 lg:px-8">
-          <div className="w-full max-w-md rounded-3xl border border-white/10 bg-white/95 p-6 text-teal-900 shadow-2xl backdrop-blur-xl sm:p-8">
-            <div className="text-center">
-              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-teal-600 text-white text-xl font-bold shadow-lg shadow-teal-600/20">
+      <motion.div
+        initial={{ opacity: 0, y: 30, scale: 0.95 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: 0.6 }}
+        className="relative z-10 w-full max-w-md mx-4"
+      >
+        <div
+          className="rounded-3xl border border-white/10 bg-slate-900/70 p-8 sm:p-10 shadow-2xl backdrop-blur-xl"
+          style={{
+            boxShadow:
+              '0 0 60px rgba(217,70,239,0.15), 0 20px 60px rgba(0,0,0,0.5)',
+          }}
+        >
+          <div className="text-center mb-8">
+            <Link to="/" className="inline-flex items-center gap-3 mb-4">
+              <motion.div
+                whileHover={{ rotate: 12 }}
+                className="h-12 w-12 rounded-2xl bg-gradient-to-br from-fuchsia-500 via-purple-500 to-pink-500 flex items-center justify-center font-bold text-xl shadow-lg shadow-fuchsia-600/40"
+              >
                 A
-              </div>
-              <h1 className="text-2xl font-bold">Welcome back</h1>
-              <p className="mt-2 text-sm text-teal-500">
-                Sign in to continue to AskLio
-              </p>
+              </motion.div>
+            </Link>
+            <h1 className="text-2xl font-bold">Welcome back</h1>
+            <p className="mt-2 text-sm text-slate-400">
+              Sign in to continue your conversations
+            </p>
+          </div>
+
+          {error && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mb-6 rounded-xl bg-red-500/10 border border-red-500/20 px-4 py-3 text-sm text-red-300 text-center"
+            >
+              {String(error)}
+            </motion.div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                Username or Email
+              </label>
+              <input
+                type="text"
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
+                className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder-slate-500 focus:border-fuchsia-500 focus:ring-1 focus:ring-fuchsia-500 focus:outline-none transition-all"
+                placeholder="Enter username or email"
+                required
+                autoComplete="username"
+              />
             </div>
 
-            <form onSubmit={handleSubmit} className="mt-8 space-y-4">
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-teal-700">
-                  Email or Username
-                </label>
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                Password
+              </label>
+              <div className="relative">
                 <input
-                  type="text"
-                  value={identifier}
-                  onChange={(e) => setIdentifier(e.target.value)}
-                  className="w-full rounded-xl border border-teal-300 bg-white px-4 py-3 text-teal-900 outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20"
-                  placeholder="you@example.com or your username"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-teal-700">
-                  Password
-                </label>
-                <input
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full rounded-xl border border-teal-300 bg-white px-4 py-3 text-teal-900 outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20"
-                  placeholder="••••••••"
+                  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 pr-12 text-sm text-white placeholder-slate-500 focus:border-fuchsia-500 focus:ring-1 focus:ring-fuchsia-500 focus:outline-none transition-all"
+                  placeholder="Enter your password"
                   required
+                  autoComplete="current-password"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-fuchsia-300 transition-colors"
+                >
+                  {showPassword ? (
+                    <HiEyeOff className="w-5 h-5" />
+                  ) : (
+                    <HiEye className="w-5 h-5" />
+                  )}
+                </button>
               </div>
+            </div>
 
-              <button
-                type="submit"
-                disabled={loading}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-teal-600 px-4 py-3 font-semibold text-white transition hover:bg-teal-500 disabled:cursor-not-allowed disabled:opacity-70"
-              >
-                {loading ? 'Signing in...' : 'Sign In'}
-                {!loading && <HiArrowRight className="w-4 h-4" />}
-              </button>
-            </form>
+            <motion.button
+              type="submit"
+              disabled={loading}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="w-full rounded-xl bg-gradient-to-r from-fuchsia-600 via-purple-600 to-pink-600 py-3.5 font-semibold shadow-lg shadow-fuchsia-600/30 hover:shadow-2xl hover:shadow-fuchsia-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {loading ? (
+                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : (
+                <>
+                  Sign in <HiArrowRight className="w-4 h-4" />
+                </>
+              )}
+            </motion.button>
+          </form>
 
-            <p className="mt-6 text-center text-sm text-teal-500">
-              Don&apos;t have an account?{' '}
-              <Link to="/signup" className="font-semibold text-teal-600 hover:text-teal-700">
-                Sign up
-              </Link>
-            </p>
+          <div className="my-6 flex items-center gap-3">
+            <div className="flex-1 border-t border-white/10" />
+            <span className="text-xs text-slate-500">or</span>
+            <div className="flex-1 border-t border-white/10" />
           </div>
+
+          <p className="text-center text-sm text-slate-400">
+            Don't have an account?{' '}
+            <Link
+              to="/signup"
+              className="bg-gradient-to-r from-fuchsia-400 to-pink-400 bg-clip-text text-transparent font-medium"
+            >
+              Create one free →
+            </Link>
+          </p>
         </div>
-      </div>
+
+        <p className="text-center mt-6 text-xs text-slate-600 flex items-center justify-center gap-1">
+          <HiSparkles className="w-3 h-3" />
+          Powered by AskLio AI
+        </p>
+      </motion.div>
     </div>
   );
 }

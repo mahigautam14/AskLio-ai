@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { motion } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -35,135 +36,52 @@ export default function MessageBubble({ message, isLast, onRegenerate, isStreami
 
   const markdownComponents = {
     p({ children }) {
-      return <p className="my-2 leading-7 break-words whitespace-pre-wrap">{children}</p>;
+      return (
+        <p className={`my-2 leading-7 break-words whitespace-pre-wrap ${darkMode ? 'text-gray-200' : 'text-slate-700'}`}>
+          {children}
+        </p>
+      );
     },
-
+    strong({ children }) {
+      return <strong className={`font-semibold ${darkMode ? 'text-white' : 'text-slate-900'}`}>{children}</strong>;
+    },
     ul({ children }) {
-      return <ul className="my-2 pl-6 list-disc space-y-1">{children}</ul>;
+      return <ul className={`my-2 pl-6 list-disc space-y-1 ${darkMode ? 'text-gray-200' : 'text-slate-700'}`}>{children}</ul>;
     },
-
     ol({ children }) {
-      return <ol className="my-2 pl-6 list-decimal space-y-1">{children}</ol>;
+      return <ol className={`my-2 pl-6 list-decimal space-y-1 ${darkMode ? 'text-gray-200' : 'text-slate-700'}`}>{children}</ol>;
     },
-
-    li({ children }) {
-      return <li className="break-words">{children}</li>;
-    },
-
     blockquote({ children }) {
       return (
-        <blockquote className="my-3 border-l-4 border-teal-500/60 pl-4 italic text-gray-700 dark:text-gray-300">
+        <blockquote className={`my-3 border-l-4 pl-4 italic ${darkMode ? 'border-teal-500/60 text-gray-300' : 'border-teal-400 text-slate-600'}`}>
           {children}
         </blockquote>
       );
     },
-
     a({ href, children }) {
-      return (
-        <a
-          href={href}
-          target="_blank"
-          rel="noreferrer"
-          className="text-teal-500 dark:text-teal-500 underline break-all"
-        >
-          {children}
-        </a>
-      );
+      return <a href={href} target="_blank" rel="noreferrer" className="text-teal-500 hover:text-teal-600 font-medium underline transition-colors">{children}</a>;
     },
-
-    hr() {
-      return <hr className="my-4 border-gray-200 dark:border-gray-700" />;
-    },
-
-    table({ children }) {
-      return (
-        <div className="my-4 w-full overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
-          <table className="min-w-full table-fixed border-collapse text-sm">{children}</table>
-        </div>
-      );
-    },
-
-    thead({ children }) {
-      return <thead className="bg-gray-50 dark:bg-gray-900/40">{children}</thead>;
-    },
-
-    tbody({ children }) {
-      return <tbody>{children}</tbody>;
-    },
-
-    tr({ children }) {
-      return <tr className="border-b border-gray-200 dark:border-gray-700">{children}</tr>;
-    },
-
-    th({ children }) {
-      return (
-        <th className="px-3 py-2 text-left align-top font-semibold break-words whitespace-normal">
-          {children}
-        </th>
-      );
-    },
-
-    td({ children }) {
-      return (
-        <td className="px-3 py-2 align-top break-words whitespace-normal">
-          {children}
-        </td>
-      );
-    },
-
     code({ inline, className, children, ...props }) {
       const text = String(children).replace(/\n$/, '');
       const isBlock = /language-/.test(className || '') || text.includes('\n');
 
-      // Only real fenced/blocked code gets a copy button
       if (isBlock) {
         const match = /language-(\w+)/.exec(className || '');
-        const currentIndex = codeBlockIndex;
-        codeBlockIndex++;
-
+        const currentIndex = codeBlockIndex++;
         return (
-          <div className="my-4 w-full overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700">
-            <div className="flex items-center justify-between gap-3 bg-gray-700 dark:bg-gray-900 text-gray-200 text-xs px-4 py-2">
-              <span className="truncate">{match ? match[1] : 'code'}</span>
-
-              <button
-                onClick={() => handleCodeCopy(text, currentIndex)}
-                className="flex items-center gap-1.5 shrink-0 hover:text-white transition-colors"
-              >
-                {codeCopied[currentIndex] ? (
-                  <>
-                    <HiCheck className="w-3.5 h-3.5" />
-                    Copied
-                  </>
-                ) : (
-                  <>
-                    <HiClipboardCopy className="w-3.5 h-3.5" />
-                    Copy
-                  </>
-                )}
+          <div className={`my-4 w-full overflow-hidden rounded-xl border shadow-sm ${darkMode ? 'border-gray-700/60' : 'border-slate-200'}`}>
+            <div className={`flex items-center justify-between gap-3 text-xs px-4 py-2 ${darkMode ? 'bg-gray-800/80 text-gray-300' : 'bg-slate-100 text-slate-600'}`}>
+              <span className="font-mono font-medium">{match ? match[1] : 'code'}</span>
+              <button onClick={() => handleCodeCopy(text, currentIndex)} className="flex items-center gap-1.5 hover:text-teal-500 transition-colors">
+                {codeCopied[currentIndex] ? <><HiCheck className="w-3.5 h-3.5" /> Copied</> : <><HiClipboardCopy className="w-3.5 h-3.5" /> Copy</>}
               </button>
             </div>
-
             <SyntaxHighlighter
               style={darkMode ? oneDark : oneLight}
               language={match ? match[1] : 'text'}
               PreTag="div"
-              wrapLongLines={true}
-              customStyle={{
-                margin: 0,
-                padding: '1rem',
-                fontSize: '0.85rem',
-                lineHeight: '1.5',
-                overflowX: 'auto',
-                borderRadius: 0,
-                boxSizing: 'border-box',
-                width: '100%',
-              }}
-              codeTagProps={{
-                style: {
-                  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
-                },
-              }}
+              wrapLongLines
+              customStyle={{ margin: 0, padding: '1rem', fontSize: '0.85rem', background: darkMode ? '#1e1e2e' : '#ffffff' }}
               {...props}
             >
               {text}
@@ -171,13 +89,8 @@ export default function MessageBubble({ message, isLast, onRegenerate, isStreami
           </div>
         );
       }
-
-      // Inline code = normal compact code style, NO copy button
       return (
-        <code
-          className="bg-gray-200 dark:bg-gray-700 px-1.5 py-0.5 rounded text-[0.92em] font-mono break-words"
-          {...props}
-        >
+        <code className={`px-1.5 py-0.5 rounded text-[0.9em] font-mono ${darkMode ? 'bg-gray-800 text-teal-300' : 'bg-slate-100 text-teal-600 border border-slate-200'}`} {...props}>
           {children}
         </code>
       );
@@ -185,29 +98,32 @@ export default function MessageBubble({ message, isLast, onRegenerate, isStreami
   };
 
   return (
-    <div className={`w-full flex py-4 px-4 md:px-8 ${isUser ? 'justify-end' : 'justify-start'}`}>
+    <motion.div 
+      initial={{ opacity: 0, y: 15, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ duration: 0.4, ease: "easeOut" }}
+      className={`w-full flex py-4 px-4 md:px-8 ${isUser ? 'justify-end' : 'justify-start'}`}
+    >
       {!isUser && (
-        <div className="w-8 h-8 rounded-full bg-teal-600 flex items-center justify-center text-white text-sm font-bold shrink-0 mt-1 mr-3">
-          C
+        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center text-white text-sm font-bold shrink-0 mt-1 mr-3 shadow-md shadow-teal-500/20">
+          L
         </div>
       )}
 
       <div className={`flex flex-col ${isUser ? 'items-end' : 'items-start'} w-full max-w-full`}>
-        <div
-          className={`message-bubble w-full max-w-[min(92vw,52rem)] md:max-w-[min(72vw,46rem)] ${
-            isUser
-              ? 'bg-teal-600 text-white rounded-br-md'
-              : isError
-              ? 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 rounded-bl-md'
-              : 'bg-gray-100 dark:bg-gray-800 rounded-bl-md'
-          }`}
-        >
+        <div className={`w-full max-w-[min(92vw,52rem)] md:max-w-[min(72vw,46rem)] px-5 py-4 rounded-2xl ${
+          isUser
+            ? 'bg-gradient-to-r from-teal-500 to-teal-600 text-white rounded-tr-sm shadow-md shadow-teal-500/20'
+            : isError
+            ? darkMode ? 'bg-red-900/20 text-red-400 border border-red-800/50 rounded-tl-sm' : 'bg-red-50 text-red-600 border border-red-100 rounded-tl-sm shadow-sm'
+            : darkMode 
+              ? 'bg-gray-800/90 text-gray-100 border border-gray-700/50 rounded-tl-sm backdrop-blur-md shadow-lg' 
+              : 'bg-white/80 text-slate-800 border border-white rounded-tl-sm backdrop-blur-md shadow-[0_8px_30px_rgb(0,0,0,0.04)] ring-1 ring-slate-900/5'
+        }`}>
           {isUser ? (
-            <p className="whitespace-pre-wrap break-words leading-relaxed text-sm">
-              {message.content}
-            </p>
+            <p className="whitespace-pre-wrap break-words leading-relaxed text-[15px]">{message.content}</p>
           ) : (
-            <div className="markdown-content w-full max-w-full overflow-hidden text-[15px] leading-7 break-words">
+            <div className="markdown-content w-full overflow-hidden text-[15px] leading-7">
               <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
                 {message.content || ''}
               </ReactMarkdown>
@@ -216,47 +132,24 @@ export default function MessageBubble({ message, isLast, onRegenerate, isStreami
         </div>
 
         {!isUser && message.content && !isStreaming && (
-          <div className="flex items-center gap-1 mt-1.5 px-1">
-            <button
-              onClick={handleCopy}
-              className="btn-ghost p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-              title="Copy response"
-            >
-              {copied ? (
-                <HiCheck className="w-3.5 h-3.5" />
-              ) : (
-                <HiClipboardCopy className="w-3.5 h-3.5" />
-              )}
-            </button>
-
+          <div className="flex items-center gap-2 mt-2 px-1">
+            <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={handleCopy} className={`p-1.5 rounded-md transition-colors ${darkMode ? 'text-gray-400 hover:text-white hover:bg-gray-800' : 'text-slate-400 hover:text-teal-600 hover:bg-white shadow-sm'}`} title="Copy response">
+              {copied ? <HiCheck className="w-4 h-4 text-teal-500" /> : <HiClipboardCopy className="w-4 h-4" />}
+            </motion.button>
             {isLast && onRegenerate && (
-              <button
-                onClick={onRegenerate}
-                className="btn-ghost p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                title="Regenerate response"
-              >
-                <HiRefresh className="w-3.5 h-3.5" />
-              </button>
+              <motion.button whileHover={{ scale: 1.1, rotate: 15 }} whileTap={{ scale: 0.9 }} onClick={onRegenerate} className={`p-1.5 rounded-md transition-colors ${darkMode ? 'text-gray-400 hover:text-white hover:bg-gray-800' : 'text-slate-400 hover:text-teal-600 hover:bg-white shadow-sm'}`} title="Regenerate">
+                <HiRefresh className="w-4 h-4" />
+              </motion.button>
             )}
           </div>
-        )}
-
-        {isError && isLast && onRegenerate && (
-          <button
-            onClick={onRegenerate}
-            className="mt-2 text-sm text-red-500 hover:text-red-600 flex items-center gap-1"
-          >
-            <HiRefresh className="w-4 h-4" />
-            Retry
-          </button>
         )}
       </div>
 
       {isUser && (
-        <div className="w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center text-white text-sm font-bold shrink-0 mt-1 ml-3">
+        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-slate-600 to-slate-800 flex items-center justify-center text-white text-sm font-bold shrink-0 mt-1 ml-3 shadow-md">
           U
         </div>
       )}
-    </div>
+    </motion.div>
   );
 }

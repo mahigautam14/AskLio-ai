@@ -1,45 +1,46 @@
+from dotenv import load_dotenv
+import os
+
+# Load .env at application startup
+load_dotenv()
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
 from app.database.database import init_db
 from app.routes.auth_routes import router as auth_router
 from app.routes.chat_routes import router as chat_router
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await init_db()
+    yield
+
+
 app = FastAPI(
     title="AskLio-chat",
-    description="AI Chatbot Backend",
-    version="1.0.0"
+    version="1.0.0",
+    description="AI Chatbot Backend with PostgreSQL",
+    lifespan=lifespan,
 )
-
-from fastapi.middleware.cors import CORSMiddleware
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:5173",
         "http://127.0.0.1:5173",
-        "https://asklio-chat.vercel.app",
-        "https://asklio-chat-24ej1xdkn-mahis-projects-86b8e89b.vercel.app"
+        "https://asklio-chat-24ej1xdkn-mahis-projects-86b8e89b.vercel.app",
     ],
-    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-app.include_router(auth_router)
-app.include_router(chat_router)
-
-
-@app.on_event("startup")
-async def startup():
-    await init_db()
+app.include_router(auth_router, prefix="/api/auth", tags=["Authentication"])
+app.include_router(chat_router, prefix="/api/chat", tags=["Chat"])
 
 
 @app.get("/")
 async def root():
-    return {"message": "AskLio backend is running"}
-
-
-@app.get("/api/health")
-async def health():
-    return {"status": "healthy", "service": "AskLio API"}
+    return {"message": "AskLio API running with PostgreSQL", "status": "healthy"}

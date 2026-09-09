@@ -1,64 +1,44 @@
-import aiosqlite
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+from sqlalchemy.orm import DeclarativeBase
+from dotenv import load_dotenv
 import os
-from pathlib import Path
 
-DB_PATH = Path(__file__).parent.parent.parent / "AskLio.db"
+load_dotenv()
+
+# Port 5433 = your actual PostgreSQL port (from pgAdmin log)
+DATABASE_URL = os.getenv(
+    "DATABASE_URL",
+    "postgresql+asyncpg://asklio_user:asklio123@127.0.0.1:5433/asklio_db",
+)
+
+print(f"[DB] Connecting with URL host/port: {DATABASE_URL.split('@')[-1]}")
+
+engine = create_async_engine(
+    DATABASE_URL,
+    echo=False,
+    pool_size=5,
+    max_overflow=5,
+    pool_pre_ping=True,
+)
+
+async_session = async_sessionmaker(
+    engine, class_=AsyncSession, expire_on_commit=False
+)
+
+
+class Base(DeclarativeBase):
+    pass
 
 
 async def get_db():
-    db = await aiosqlite.connect(str(DB_PATH))
-    db.row_factory = aiosqlite.Row
-    try:
-        yield db
-    finally:
-        await db.close()
+    async with async_session() as session:
+        try:
+            yield session
+        finally:
+            await session.close()
 
 
 async def init_db():
-    db = await aiosqlite.connect(str(DB_PATH))
-    
-    await db.execute("""
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT UNIQUE NOT NULL,
-            email TEXT UNIQUE NOT NULL,
-            hashed_password TEXT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
-    
-    await db.execute("""
-        CREATE TABLE IF NOT EXISTS conversations (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            title TEXT DEFAULT 'New Chat',
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
-        )
-    """)
-    
-    await db.execute("""
-        CREATE TABLE IF NOT EXISTS messages (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            conversation_id INTEGER NOT NULL,
-            role TEXT NOT NULL CHECK (role IN ('user', 'assistant', 'system')),
-            content TEXT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (conversation_id) REFERENCES conversations (id) ON DELETE CASCADE
-        )
-    """)
-    
-    await db.execute("""
-        CREATE INDEX IF NOT EXISTS idx_conversations_user_id 
-        ON conversations (user_id)
-    """)
-    
-    await db.execute("""
-        CREATE INDEX IF NOT EXISTS idx_messages_conversation_id 
-        ON messages (conversation_id)
-    """)
-    
-    await db.commit()
-    await db.close()
-    print("Database initialized successfully")
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    print("✅ PostgreSQL Database initialized successfully")

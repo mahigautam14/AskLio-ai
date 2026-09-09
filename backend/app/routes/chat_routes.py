@@ -1,245 +1,375 @@
-from fastapi import APIRouter, HTTPException, status, Depends, Query
+from fastapi import APIRouter, HTTPException, status, Depends
 from fastapi.responses import StreamingResponse
-import aiosqlite
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, desc
+from sqlalchemy.orm import selectinload
+from pydantic import BaseModel
+from typing import List, Optional
+from datetime import datetime, timezone
+from dotenv import load_dotenv
+import httpx
+import os
 import json
-import asyncio
-from typing import Optional
 
-from app.models.schemas import (
-    ChatRequest, MessageResponse, ConversationResponse,
-    ConversationCreate, ConversationUpdate, ConversationWithMessages
-)
+from app.models.schemas import Conversation, Message
 from app.auth.auth_handler import get_current_user
-from app.database.database import get_db
-from app.services import chat_service, llm_service
+from app.database.database import get_db, async_session
 
-router = APIRouter(prefix="/api/chat", tags=["Chat"])
+# Force load variables from backend/.env file
+load_dotenv()
+
+router = APIRouter()
 
 
-@router.get("/conversations", response_model=list)
+# ───────── Pydantic Request Schemas ─────────
+class ChatSendRequest(BaseModel):
+    message: str
+    conversation_id: Optional[int] = None
+
+
+class ConversationCreate(BaseModel):
+    title: Optional[str] = "New Chat"
+
+
+class ConversationUpdate(BaseModel):
+    title: str
+
+
+# ───────── 1. List Conversations ─────────
+@router.get("/conversations")
 async def list_conversations(
-    search: Optional[str] = Query(None),
+    search: Optional[str] = None,
     current_user: dict = Depends(get_current_user),
-    db: aiosqlite.Connection = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
-    conversations = await chat_service.get_conversations(
-        db, current_user["user_id"], search
-    )
-    return conversations
+    query = select(Conversation).where(Conversation.user_id == current_user["user_id"])
+    if search:
+        query = query.where(Conversation.title.ilike(f"%{search}%"))
+    query = query.order_by(desc(Conversation.updated_at))
+    result = await db.execute(query)
+    conversations = result.scalars().all()
+    return [
+        {
+            "id": c.id,
+            "title": c.title,
+            "created_at": c.created_at.isoformat() if c.created_at else None,
+            "updated_at": c.updated_at.isoformat() if c.updated_at else None,
+        }
+        for c in conversations
+    ]
 
 
-@router.post("/conversations", response_model=dict, status_code=status.HTTP_201_CREATED)
+# ───────── 2. Create Conversation ─────────
+@router.post("/conversations")
 async def create_conversation(
-    data: ConversationCreate = ConversationCreate(),
+    payload: ConversationCreate,
     current_user: dict = Depends(get_current_user),
-    db: aiosqlite.Connection = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
-    conversation = await chat_service.create_conversation(
-        db, current_user["user_id"], data.title or "New Chat"
+    conv = Conversation(
+        user_id=current_user["user_id"],
+        title=payload.title or "New Chat",
     )
-    return conversation
+    db.add(conv)
+    await db.commit()
+    await db.refresh(conv)
+    return {
+        "id": conv.id,
+        "title": conv.title,
+        "created_at": conv.created_at.isoformat() if conv.created_at else None,
+        "updated_at": conv.updated_at.isoformat() if conv.updated_at else None,
+    }
 
 
-@router.get("/conversations/{conversation_id}", response_model=dict)
+# ───────── 3. Get Single Conversation with Messages ─────────
+@router.get("/conversations/{conversation_id}")
 async def get_conversation(
     conversation_id: int,
     current_user: dict = Depends(get_current_user),
-    db: aiosqlite.Connection = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
-    conversation = await chat_service.get_conversation(
-        db, conversation_id, current_user["user_id"]
+    result = await db.execute(
+        select(Conversation)
+        .options(selectinload(Conversation.messages))
+        .where(
+            Conversation.id == conversation_id,
+            Conversation.user_id == current_user["user_id"],
+        )
     )
-    if not conversation:
+    conv = result.scalar_one_or_none()
+    if not conv:
         raise HTTPException(status_code=404, detail="Conversation not found")
-    
-    messages = await chat_service.get_messages(db, conversation_id)
-    conversation["messages"] = messages
-    return conversation
+
+    return {
+        "id": conv.id,
+        "title": conv.title,
+        "created_at": conv.created_at.isoformat() if conv.created_at else None,
+        "updated_at": conv.updated_at.isoformat() if conv.updated_at else None,
+        "messages": [
+            {
+                "id": m.id,
+                "role": m.role,
+                "content": m.content,
+                "created_at": m.created_at.isoformat() if m.created_at else None,
+            }
+            for m in conv.messages
+        ],
+    }
 
 
-@router.put("/conversations/{conversation_id}", response_model=dict)
+# ───────── 4. Update Conversation Title ─────────
+@router.put("/conversations/{conversation_id}")
+@router.patch("/conversations/{conversation_id}")
 async def update_conversation(
     conversation_id: int,
-    data: ConversationUpdate,
+    payload: ConversationUpdate,
     current_user: dict = Depends(get_current_user),
-    db: aiosqlite.Connection = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
-    success = await chat_service.update_conversation_title(
-        db, conversation_id, current_user["user_id"], data.title
+    result = await db.execute(
+        select(Conversation).where(
+            Conversation.id == conversation_id,
+            Conversation.user_id == current_user["user_id"],
+        )
     )
-    if not success:
+    conv = result.scalar_one_or_none()
+    if not conv:
         raise HTTPException(status_code=404, detail="Conversation not found")
-    
-    conversation = await chat_service.get_conversation(
-        db, conversation_id, current_user["user_id"]
-    )
-    return conversation
+
+    conv.title = payload.title
+    conv.updated_at = datetime.now(timezone.utc)
+    await db.commit()
+    await db.refresh(conv)
+    return {
+        "id": conv.id,
+        "title": conv.title,
+        "created_at": conv.created_at.isoformat() if conv.created_at else None,
+        "updated_at": conv.updated_at.isoformat() if conv.updated_at else None,
+    }
 
 
-@router.delete("/conversations/{conversation_id}")
+# ───────── 5. Delete Conversation ─────────
+@router.delete("/conversations/{conversation_id}", status_code=204)
 async def delete_conversation(
     conversation_id: int,
     current_user: dict = Depends(get_current_user),
-    db: aiosqlite.Connection = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
-    success = await chat_service.delete_conversation(
-        db, conversation_id, current_user["user_id"]
+    result = await db.execute(
+        select(Conversation).where(
+            Conversation.id == conversation_id,
+            Conversation.user_id == current_user["user_id"],
+        )
     )
-    if not success:
+    conv = result.scalar_one_or_none()
+    if not conv:
         raise HTTPException(status_code=404, detail="Conversation not found")
-    return {"message": "Conversation deleted"}
+
+    await db.delete(conv)
+    await db.commit()
+    return None
 
 
+# ───────── 6. Send Message & Stream AI Reply ─────────
 @router.post("/send")
 async def send_message(
-    data: ChatRequest,
+    payload: ChatSendRequest,
     current_user: dict = Depends(get_current_user),
-    db: aiosqlite.Connection = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     user_id = current_user["user_id"]
-    
-    if data.conversation_id:
-        conversation = await chat_service.get_conversation(
-            db, data.conversation_id, user_id
+    user_text = payload.message.strip()
+    if not user_text:
+        raise HTTPException(status_code=400, detail="Message cannot be empty")
+
+    conv = None
+    if payload.conversation_id:
+        result = await db.execute(
+            select(Conversation).where(
+                Conversation.id == payload.conversation_id,
+                Conversation.user_id == user_id,
+            )
         )
-        if not conversation:
-            raise HTTPException(status_code=404, detail="Conversation not found")
-        conversation_id = data.conversation_id
-    else:
-        conversation = await chat_service.create_conversation(db, user_id)
-        conversation_id = conversation["id"]
-    
-    await chat_service.add_message(db, conversation_id, "user", data.message)
-    
-    messages = await chat_service.get_messages(db, conversation_id)
-    message_history = [{"role": m["role"], "content": m["content"]} for m in messages]
-    
-    collected_response = []
+        conv = result.scalar_one_or_none()
 
-    async def generate():
-        nonlocal collected_response
-        
-        yield f"data: {json.dumps({'conversation_id': conversation_id, 'type': 'start'})}\n\n"
-        
-        async for chunk in llm_service.stream_llm_response(message_history):
-            collected_response.append(chunk)
-            yield f"data: {json.dumps({'content': chunk, 'type': 'chunk'})}\n\n"
-        
-        full_response = "".join(collected_response)
-        
-        save_db = await aiosqlite.connect(str(chat_service.__import__('pathlib').Path(__file__).parent.parent.parent / "AskLio.db") if False else "AskLio.db")
-        try:
-            pass
-        finally:
-            pass
-        
-        yield f"data: {json.dumps({'type': 'done', 'conversation_id': conversation_id})}\n\n"
+    if not conv:
+        title_str = user_text[:40] + ("..." if len(user_text) > 40 else "")
+        conv = Conversation(user_id=user_id, title=title_str)
+        db.add(conv)
+        await db.commit()
+        await db.refresh(conv)
 
-    async def generate_and_save():
-        yield f"data: {json.dumps({'conversation_id': conversation_id, 'type': 'start'})}\n\n"
-        
-        full_response_parts = []
-        
-        async for chunk in llm_service.stream_llm_response(message_history):
-            full_response_parts.append(chunk)
-            yield f"data: {json.dumps({'content': chunk, 'type': 'chunk'})}\n\n"
-        
-        full_response = "".join(full_response_parts)
-        
-        db2 = await aiosqlite.connect("AskLio.db")
-        try:
-            now = __import__('datetime').datetime.utcnow().isoformat()
-            await db2.execute(
-                "INSERT INTO messages (conversation_id, role, content, created_at) VALUES (?, ?, ?, ?)",
-                (conversation_id, "assistant", full_response, now)
-            )
-            await db2.execute(
-                "UPDATE conversations SET updated_at = ? WHERE id = ?",
-                (now, conversation_id)
-            )
-            
-            msg_count = await db2.execute_fetchall(
-                "SELECT COUNT(*) FROM messages WHERE conversation_id = ?",
-                (conversation_id,)
-            )
-            if msg_count and msg_count[0][0] <= 2:
-                title = await llm_service.generate_title(data.message)
-                await db2.execute(
-                    "UPDATE conversations SET title = ? WHERE id = ?",
-                    (title, conversation_id)
-                )
-                yield f"data: {json.dumps({'type': 'title_update', 'title': title})}\n\n"
-            
-            await db2.commit()
-        finally:
-            await db2.close()
-        
-        yield f"data: {json.dumps({'type': 'done', 'conversation_id': conversation_id})}\n\n"
+    user_msg = Message(conversation_id=conv.id, role="user", content=user_text)
+    db.add(user_msg)
+    conv.updated_at = datetime.now(timezone.utc)
+    await db.commit()
 
-    return StreamingResponse(
-        generate_and_save(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "X-Accel-Buffering": "no",
-        }
+    history_result = await db.execute(
+        select(Message)
+        .where(Message.conversation_id == conv.id)
+        .order_by(Message.created_at)
     )
+    history = history_result.scalars().all()
+    messages_for_llm = [{"role": m.role, "content": m.content} for m in history]
+
+    conv_id = conv.id
+
+    async def event_stream():
+        yield f"data: {json.dumps({'type': 'start', 'conversation_id': conv_id})}\n\n"
+
+        # Dynamically read environment variables
+        api_key = os.getenv("LLM_API_KEY", "")
+        api_url = os.getenv("LLM_API_URL", "https://api.groq.com/openai/v1/chat/completions")
+        model_name = os.getenv("LLM_MODEL", "llama-3.3-70b-versatile")
+
+        full_reply = ""
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        }
+        body = {
+            "model": model_name,
+            "messages": messages_for_llm,
+            "stream": True,
+            "temperature": 0.7,
+        }
+
+        try:
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                async with client.stream("POST", api_url, headers=headers, json=body) as resp:
+                    if resp.status_code != 200:
+                        err_bytes = await resp.aread()
+                        print(f"[Groq API Error]: {err_bytes.decode()}")
+                        yield f"data: {json.dumps({'type': 'chunk', 'content': 'Error calling AI service.'})}\n\n"
+                        yield f"data: {json.dumps({'type': 'done', 'conversation_id': conv_id})}\n\n"
+                        return
+
+                    async for line in resp.aiter_lines():
+                        if not line.startswith("data: "):
+                            continue
+                        data_str = line[6:]
+                        if data_str.strip() == "[DONE]":
+                            break
+                        try:
+                            data = json.loads(data_str)
+                            delta = data.get("choices", [{}])[0].get("delta", {})
+                            token = delta.get("content", "")
+                            if token:
+                                full_reply += token
+                                yield f"data: {json.dumps({'type': 'chunk', 'content': token})}\n\n"
+                        except Exception:
+                            continue
+
+            if full_reply:
+                async with async_session() as stream_db:
+                    assistant_msg = Message(
+                        conversation_id=conv_id,
+                        role="assistant",
+                        content=full_reply,
+                    )
+                    stream_db.add(assistant_msg)
+                    c_res = await stream_db.execute(
+                        select(Conversation).where(Conversation.id == conv_id)
+                    )
+                    c = c_res.scalar_one_or_none()
+                    if c:
+                        c.updated_at = datetime.now(timezone.utc)
+                    await stream_db.commit()
+
+        except Exception as e:
+            print(f"[Stream Error]: {e}")
+            yield f"data: {json.dumps({'type': 'chunk', 'content': f' Error: {str(e)}'})}\n\n"
+
+        yield f"data: {json.dumps({'type': 'done', 'conversation_id': conv_id})}\n\n"
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
 
 
+# ───────── 7. Regenerate Response ─────────
 @router.post("/regenerate/{conversation_id}")
 async def regenerate_response(
     conversation_id: int,
     current_user: dict = Depends(get_current_user),
-    db: aiosqlite.Connection = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
-    conversation = await chat_service.get_conversation(
-        db, conversation_id, current_user["user_id"]
+    user_id = current_user["user_id"]
+    result = await db.execute(
+        select(Conversation)
+        .options(selectinload(Conversation.messages))
+        .where(Conversation.id == conversation_id, Conversation.user_id == user_id)
     )
-    if not conversation:
-        raise HTTPException(status_code=404, detail="Conversation not found")
-    
-    messages = await chat_service.get_messages(db, conversation_id)
-    
-    if messages and messages[-1]["role"] == "assistant":
-        await db.execute(
-            "DELETE FROM messages WHERE id = ?", (messages[-1]["id"],)
-        )
-        await db.commit()
-        messages = messages[:-1]
-    
-    message_history = [{"role": m["role"], "content": m["content"]} for m in messages]
+    conv = result.scalar_one_or_none()
+    if not conv or not conv.messages:
+        raise HTTPException(status_code=404, detail="Conversation or messages not found")
 
-    async def generate_and_save():
-        yield f"data: {json.dumps({'conversation_id': conversation_id, 'type': 'start'})}\n\n"
-        
-        full_response_parts = []
-        
-        async for chunk in llm_service.stream_llm_response(message_history):
-            full_response_parts.append(chunk)
-            yield f"data: {json.dumps({'content': chunk, 'type': 'chunk'})}\n\n"
-        
-        full_response = "".join(full_response_parts)
-        
-        db2 = await aiosqlite.connect("AskLio.db")
+    if conv.messages[-1].role == "assistant":
+        await db.delete(conv.messages[-1])
+        await db.commit()
+
+    history_result = await db.execute(
+        select(Message)
+        .where(Message.conversation_id == conversation_id)
+        .order_by(Message.created_at)
+    )
+    history = history_result.scalars().all()
+    messages_for_llm = [{"role": m.role, "content": m.content} for m in history]
+
+    async def event_stream():
+        yield f"data: {json.dumps({'type': 'start', 'conversation_id': conversation_id})}\n\n"
+
+        api_key = os.getenv("LLM_API_KEY", "")
+        api_url = os.getenv("LLM_API_URL", "https://api.groq.com/openai/v1/chat/completions")
+        model_name = os.getenv("LLM_MODEL", "llama-3.3-70b-versatile")
+
+        full_reply = ""
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        }
+        body = {
+            "model": model_name,
+            "messages": messages_for_llm,
+            "stream": True,
+            "temperature": 0.7,
+        }
+
         try:
-            now = __import__('datetime').datetime.utcnow().isoformat()
-            await db2.execute(
-                "INSERT INTO messages (conversation_id, role, content, created_at) VALUES (?, ?, ?, ?)",
-                (conversation_id, "assistant", full_response, now)
-            )
-            await db2.commit()
-        finally:
-            await db2.close()
-        
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                async with client.stream("POST", api_url, headers=headers, json=body) as resp:
+                    if resp.status_code != 200:
+                        yield f"data: {json.dumps({'type': 'chunk', 'content': 'Error calling AI service.'})}\n\n"
+                        yield f"data: {json.dumps({'type': 'done', 'conversation_id': conversation_id})}\n\n"
+                        return
+
+                    async for line in resp.aiter_lines():
+                        if not line.startswith("data: "):
+                            continue
+                        data_str = line[6:]
+                        if data_str.strip() == "[DONE]":
+                            break
+                        try:
+                            data = json.loads(data_str)
+                            delta = data.get("choices", [{}])[0].get("delta", {})
+                            token = delta.get("content", "")
+                            if token:
+                                full_reply += token
+                                yield f"data: {json.dumps({'type': 'chunk', 'content': token})}\n\n"
+                        except Exception:
+                            continue
+
+            if full_reply:
+                async with async_session() as stream_db:
+                    assistant_msg = Message(
+                        conversation_id=conversation_id,
+                        role="assistant",
+                        content=full_reply,
+                    )
+                    stream_db.add(assistant_msg)
+                    await stream_db.commit()
+
+        except Exception as e:
+            yield f"data: {json.dumps({'type': 'chunk', 'content': f' Error: {str(e)}'})}\n\n"
+
         yield f"data: {json.dumps({'type': 'done', 'conversation_id': conversation_id})}\n\n"
 
-    return StreamingResponse(
-        generate_and_save(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "X-Accel-Buffering": "no",
-        }
-    )
+    return StreamingResponse(event_stream(), media_type="text/event-stream")

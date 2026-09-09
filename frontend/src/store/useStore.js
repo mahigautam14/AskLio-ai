@@ -34,28 +34,32 @@ const useStore = create((set, get) => ({
   sidebarOpen: false,
   darkMode: getInitialDarkMode(),
 
-  setAuth: (user, token) => {
-    localStorage.setItem('AskLio_user', JSON.stringify(user));
+  // 🔥 YAHAN FIX KIYA HAI: 'login' function jo frontend pages call karenge
+  login: (token, user) => {
     localStorage.setItem('AskLio_token', token);
+    if (user) {
+      localStorage.setItem('AskLio_user', JSON.stringify(user));
+    }
     set({ user, token, isAuthenticated: true });
   },
 
+  // 🔥 LOGOUT function
   logout: () => {
-  localStorage.removeItem('AskLio_user');
-  localStorage.removeItem('AskLio_token');
-  set({
-    user: null,
-    token: null,
-    isAuthenticated: false,
-    conversations: [],
-    activeConversationId: null,
-    messages: [],
-    isLoading: false,
-    isStreaming: false,
-    streamingContent: '',
-    sidebarOpen: false,
-  });
-},
+    localStorage.removeItem('AskLio_user');
+    localStorage.removeItem('AskLio_token');
+    set({
+      user: null,
+      token: null,
+      isAuthenticated: false,
+      conversations: [],
+      activeConversationId: null,
+      messages: [],
+      isLoading: false,
+      isStreaming: false,
+      streamingContent: '',
+      sidebarOpen: false,
+    });
+  },
 
   setConversations: (conversations) => set({ conversations }),
   setActiveConversation: (id) => set({ activeConversationId: id }),
