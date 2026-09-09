@@ -2,7 +2,6 @@ from fastapi import APIRouter, HTTPException, status, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, or_, func
 
-
 from app.models.schemas import User, UserCreate, UserLogin, TokenResponse, UserResponse
 from app.auth.auth_handler import (
     hash_password,
@@ -14,9 +13,9 @@ from app.database.database import get_db
 
 router = APIRouter()
 
-@router.post("/signup", status_code=status.HTTP_201_CREATED)
-@router.post("/register", status_code=status.HTTP_201_CREATED)
-# @router.post("/signup", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
+
+@router.post("/signup", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
 async def signup(user: UserCreate, db: AsyncSession = Depends(get_db)):
     username = user.username.strip()
     email = user.email.strip().lower()
@@ -55,9 +54,9 @@ async def signup(user: UserCreate, db: AsyncSession = Depends(get_db)):
         user=UserResponse(id=new_user.id, username=new_user.username, email=new_user.email),
     )
 
-@router.post("/login")
-@router.post("/signin")
-# @router.post("/login", response_model=TokenResponse)
+
+@router.post("/login", response_model=TokenResponse)
+@router.post("/signin", response_model=TokenResponse)
 async def login(credentials: UserLogin, db: AsyncSession = Depends(get_db)):
     identifier = credentials.identifier.strip().lower()
     password = credentials.password.strip()
