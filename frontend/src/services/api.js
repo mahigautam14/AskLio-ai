@@ -1,10 +1,12 @@
 import axios from 'axios';
 
-// Agar Vercel env variable na mile, toh DIRECT Render Backend URL use hoga
-const API_URL = import.meta.env.VITE_API_URL || 'https://asklio-ai.onrender.com';
+// Base URL handling (har situation me `/api` automatically lag jayega)
+const RAW_URL = import.meta.env.VITE_API_URL || 'https://asklio-ai.onrender.com';
+const CLEAN_URL = RAW_URL.replace(/\/+$/, '');
+const API_BASE = CLEAN_URL.endsWith('/api') ? CLEAN_URL : `${CLEAN_URL}/api`;
 
 export const api = axios.create({
-  baseURL: API_URL,
+  baseURL: API_BASE,
   headers: {
     'Content-Type': 'application/json',
   },
