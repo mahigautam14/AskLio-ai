@@ -8,7 +8,8 @@ import useStore from '../store/useStore';
 import { useChat } from '../hooks/useChat';
 
 export default function ChatArea() {
-  const { messages, isStreaming, isLoading, setSidebarOpen, darkMode, activeConversationId } = useStore();
+  const { messages, isStreaming, isLoading, setSidebarOpen, darkMode, activeConversationId } =
+    useStore();
   const { sendMessage, regenerateResponse } = useChat();
 
   const messagesEndRef = useRef(null);
@@ -17,16 +18,15 @@ export default function ChatArea() {
 
   useEffect(() => {
     const wasStreaming = wasStreamingRef.current;
-    const isNowStreaming = isStreaming;
-    const hasNewUserMessage = 
-      messages.length > prevMsgLengthRef.current && 
+    const hasNewUserMessage =
+      messages.length > prevMsgLengthRef.current &&
       messages[messages.length - 1]?.role === 'user';
 
     if (hasNewUserMessage) {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
 
-    if (wasStreaming && !isNowStreaming) {
+    if (wasStreaming && !isStreaming) {
       setTimeout(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
       }, 150);
@@ -41,16 +41,41 @@ export default function ChatArea() {
   }, [activeConversationId]);
 
   const showWelcome = messages.length === 0 && !isLoading;
-  const showTyping = isStreaming && messages.length > 0 && messages[messages.length - 1]?.role === 'assistant' && !messages[messages.length - 1]?.content;
+  const showTyping =
+    isStreaming &&
+    messages.length > 0 &&
+    messages[messages.length - 1]?.role === 'assistant' &&
+    !messages[messages.length - 1]?.content;
 
   return (
-    <div className="relative flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-      <header className={`sticky top-0 z-30 flex shrink-0 items-center gap-2 border-b px-3 py-3 backdrop-blur-xl sm:px-4 ${darkMode ? 'border-slate-700/40 bg-[#0B1120]/90' : 'border-slate-200/70 bg-white/90'}`}>
-        <button type="button" onClick={() => setSidebarOpen(true)} className={`rounded-xl p-2 md:hidden ${darkMode ? 'text-slate-200 hover:bg-slate-800' : 'text-slate-700 hover:bg-slate-100'}`}>
+    <div className="relative flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-transparent">
+      {/* Soft top bar — same tone as sidebar */}
+      <header
+        className={`sticky top-0 z-30 flex shrink-0 items-center gap-2 px-3 py-3 sm:px-5 backdrop-blur-xl ${
+          darkMode
+            ? 'bg-[#0f172a]/75 border-b border-slate-700/40'
+            : 'bg-[#f8fafc]/80 border-b border-slate-200/70'
+        }`}
+      >
+        <button
+          type="button"
+          onClick={() => setSidebarOpen(true)}
+          className={`rounded-xl p-2 md:hidden transition ${
+            darkMode
+              ? 'text-slate-300 hover:bg-slate-800/80'
+              : 'text-slate-600 hover:bg-white/70'
+          }`}
+          aria-label="Open chats"
+        >
           <HiMenuAlt2 className="h-6 w-6" />
         </button>
+
         <div className="min-w-0 flex-1">
-          <h2 className={`truncate text-sm font-semibold sm:text-base ${darkMode ? 'text-white' : 'text-slate-800'}`}>
+          <h2
+            className={`truncate text-[13px] font-semibold tracking-wide sm:text-sm ${
+              darkMode ? 'text-slate-300' : 'text-slate-500'
+            }`}
+          >
             {activeConversationId ? 'Chat' : 'New Chat'}
           </h2>
         </div>
@@ -66,12 +91,24 @@ export default function ChatArea() {
             <WelcomeScreen onSendMessage={sendMessage} />
           </div>
         ) : (
-          <div className="mx-auto w-full max-w-4xl flex-1 px-0 pb-4 pt-2">
+          <div className="mx-auto w-full max-w-4xl flex-1 px-0 pb-6 pt-3">
             {messages.map((message, index) => {
               const isLast = index === messages.length - 1;
-              const isAssistantStreaming = isStreaming && isLast && message.role === 'assistant';
+              const isAssistantStreaming =
+                isStreaming && isLast && message.role === 'assistant';
+
               return (
-                <MessageBubble key={message.id || `msg-${index}`} message={message} isLast={isLast} onRegenerate={isLast && message.role === 'assistant' && !isStreaming ? regenerateResponse : undefined} isStreaming={isAssistantStreaming} />
+                <MessageBubble
+                  key={message.id || `msg-${index}`}
+                  message={message}
+                  isLast={isLast}
+                  onRegenerate={
+                    isLast && message.role === 'assistant' && !isStreaming
+                      ? regenerateResponse
+                      : undefined
+                  }
+                  isStreaming={isAssistantStreaming}
+                />
               );
             })}
             {showTyping && <TypingIndicator />}
@@ -80,7 +117,7 @@ export default function ChatArea() {
         )}
       </div>
 
-      <div className="shrink-0">
+      <div className="relative z-20 shrink-0">
         <MessageComposer onSend={sendMessage} disabled={isStreaming || isLoading} />
       </div>
     </div>
