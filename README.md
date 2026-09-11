@@ -15,3 +15,4 @@ source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 # Edit .env with your API key
 uvicorn app.main:app --reload --port 8000
+"# AskLio-chat" 
