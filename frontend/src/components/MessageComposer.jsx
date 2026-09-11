@@ -86,7 +86,7 @@ export default function MessageComposer({ onSend, disabled }) {
             darkMode ? 'text-slate-500' : 'text-slate-400'
           }`}
         >
-          Lio can make mistakes. Check important info.
+          Lio can make mistakes. Check important info. Build with Mahi :)
         </p>
       </form>
     </div>
