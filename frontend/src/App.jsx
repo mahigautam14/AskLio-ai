@@ -17,11 +17,6 @@ function PublicRoute({ children }) {
   return isAuthenticated ? <Navigate to="/chat" replace /> : children;
 }
 
-function HomeRoute() {
-  const { isAuthenticated } = useStore();
-  return isAuthenticated ? <Navigate to="/chat" replace /> : <LandingPage />;
-}
-
 export default function App() {
   const { initTheme, darkMode } = useStore();
 
@@ -42,33 +37,11 @@ export default function App() {
           },
         }}
       />
-
       <Routes>
-        <Route path="/" element={<HomeRoute />} />
-        <Route
-          path="/login"
-          element={
-            <PublicRoute>
-              <LoginPage />
-            </PublicRoute>
-          }
-        />
-        <Route
-          path="/signup"
-          element={
-            <PublicRoute>
-              <SignupPage />
-            </PublicRoute>
-          }
-        />
-        <Route
-          path="/chat"
-          element={
-            <ProtectedRoute>
-              <ChatPage />
-            </ProtectedRoute>
-          }
-        />
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
+        <Route path="/signup" element={<PublicRoute><SignupPage /></PublicRoute>} />
+        <Route path="/chat" element={<ProtectedRoute><ChatPage /></ProtectedRoute>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
