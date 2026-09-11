@@ -8,35 +8,37 @@ export default function ChatPage() {
 
   return (
     <div
-      className={`h-[100dvh] w-full overflow-hidden transition-colors duration-500 ${
-        darkMode ? 'bg-[#0B1121] text-white' : 'bg-slate-50 text-slate-900'
+      className={`relative h-[100dvh] w-full max-w-[100vw] overflow-hidden transition-colors duration-500 ${
+        darkMode ? 'bg-[#0f172a] text-white' : 'bg-[#f8fafc] text-slate-900'
       }`}
     >
-      {/* Background blobs — pointer-events none, never push layout */}
-      <div className="pointer-events-none absolute inset-0 overflow-hidden z-0">
+      {/* 🚀 Soft Animated Glow Blobs (NO LINES / NO HARSH COLORS) */}
+      <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
         <div
-          className={`absolute -top-[10%] -left-[10%] w-[35rem] h-[35rem] rounded-full blur-[120px] ${
-            darkMode ? 'bg-teal-600/15' : 'bg-teal-300/30'
+          className={`animate-blob absolute -top-[10%] -left-[5%] h-[30rem] w-[30rem] rounded-full blur-[120px] ${
+            darkMode ? 'bg-teal-500/12' : 'bg-sky-200/50'
           }`}
         />
         <div
-          className={`absolute top-[20%] -right-[10%] w-[30rem] h-[30rem] rounded-full blur-[120px] ${
-            darkMode ? 'bg-blue-600/15' : 'bg-blue-300/25'
+          className={`animate-blob animation-delay-2000 absolute top-[20%] -right-[8%] h-[26rem] w-[26rem] rounded-full blur-[120px] ${
+            darkMode ? 'bg-indigo-500/10' : 'bg-teal-200/40'
           }`}
         />
         <div
-          className={`absolute -bottom-[15%] left-[20%] w-[40rem] h-[40rem] rounded-full blur-[130px] ${
-            darkMode ? 'bg-purple-600/10' : 'bg-purple-300/20'
+          className={`animate-blob animation-delay-4000 absolute -bottom-[12%] left-[20%] h-[32rem] w-[32rem] rounded-full blur-[130px] ${
+            darkMode ? 'bg-purple-500/10' : 'bg-indigo-100/50'
           }`}
         />
       </div>
 
-      {/* MAIN ROW: sidebar + chat — same height, no double scroll */}
+      {/* Main Container */}
       <div className="relative z-10 flex h-full w-full min-w-0">
         <Sidebar />
-
-        {/* Chat side takes remaining space only */}
-        <main className="flex min-w-0 flex-1 flex-col h-full overflow-hidden">
+        <main
+          className={`flex h-full min-w-0 flex-1 flex-col overflow-hidden border-l bg-transparent ${
+            darkMode ? 'border-slate-800/80' : 'border-slate-200/70'
+          }`}
+        >
           <ChatArea />
         </main>
       </div>
