@@ -16,8 +16,11 @@ export default function MessageBubble({ message, isLast, onRegenerate, isStreami
   const isUser = message.role === 'user';
   const isError = message.content?.startsWith('Error:');
 
+  // 🔥 FIX 1: Replace raw HTML <br> with proper line breaks
+  const formattedContent = (message.content || '').replace(/<br\s*\/?>/gi, '\n');
+
   const handleCopy = async () => {
-    await navigator.clipboard.writeText(message.content || '');
+    await navigator.clipboard.writeText(formattedContent);
     setCopied(true);
     toast.success('Copied to clipboard');
     setTimeout(() => setCopied(false), 1500);
@@ -61,6 +64,27 @@ export default function MessageBubble({ message, isLast, onRegenerate, isStreami
     a({ href, children }) {
       return <a href={href} target="_blank" rel="noreferrer" className="text-teal-500 hover:text-teal-600 font-medium underline transition-colors">{children}</a>;
     },
+    
+    // 🔥 FIX 2: Handle Markdown Tables to prevent overflow
+    table({ children }) {
+      return (
+        <div className={`overflow-x-auto w-full my-4 rounded-xl border ${darkMode ? 'border-gray-700/60' : 'border-slate-200'} custom-scrollbar`}>
+          <table className="w-full text-left text-[14px] border-collapse min-w-[500px]">
+            {children}
+          </table>
+        </div>
+      );
+    },
+    thead({ children }) {
+      return <thead className={darkMode ? 'bg-gray-800/80 text-gray-200' : 'bg-slate-50 text-slate-700'}>{children}</thead>;
+    },
+    th({ children }) {
+      return <th className={`px-4 py-3 font-semibold border-b ${darkMode ? 'border-gray-700/60' : 'border-slate-200'}`}>{children}</th>;
+    },
+    td({ children }) {
+      return <td className={`px-4 py-3 border-b align-top whitespace-pre-wrap ${darkMode ? 'border-gray-700/60 text-gray-300' : 'border-slate-200 text-slate-600'}`}>{children}</td>;
+    },
+
     code({ inline, className, children, ...props }) {
       const text = String(children).replace(/\n$/, '');
       const isBlock = /language-/.test(className || '') || text.includes('\n');
@@ -71,7 +95,7 @@ export default function MessageBubble({ message, isLast, onRegenerate, isStreami
         return (
           <div className={`my-4 w-full overflow-hidden rounded-xl border shadow-sm ${darkMode ? 'border-gray-700/60' : 'border-slate-200'}`}>
             <div className={`flex items-center justify-between gap-3 text-xs px-4 py-2 ${darkMode ? 'bg-gray-800/80 text-gray-300' : 'bg-slate-100 text-slate-600'}`}>
-              <span className="font-mono font-medium">{match ? match[1] : 'code'}</span>
+              <span className="font-mono font-medium uppercase tracking-wider">{match ? match[1] : 'code'}</span>
               <button onClick={() => handleCodeCopy(text, currentIndex)} className="flex items-center gap-1.5 hover:text-teal-500 transition-colors">
                 {codeCopied[currentIndex] ? <><HiCheck className="w-3.5 h-3.5" /> Copied</> : <><HiClipboardCopy className="w-3.5 h-3.5" /> Copy</>}
               </button>
@@ -110,7 +134,7 @@ export default function MessageBubble({ message, isLast, onRegenerate, isStreami
         </div>
       )}
 
-      <div className={`flex flex-col ${isUser ? 'items-end' : 'items-start'} w-full max-w-full`}>
+      <div className={`flex flex-col ${isUser ? 'items-end' : 'items-start'} w-full max-w-full overflow-hidden`}>
         <div className={`w-full max-w-[min(92vw,52rem)] md:max-w-[min(72vw,46rem)] px-5 py-4 rounded-2xl ${
           isUser
             ? 'bg-gradient-to-r from-teal-500 to-teal-600 text-white rounded-tr-sm shadow-md shadow-teal-500/20'
@@ -118,20 +142,20 @@ export default function MessageBubble({ message, isLast, onRegenerate, isStreami
             ? darkMode ? 'bg-red-900/20 text-red-400 border border-red-800/50 rounded-tl-sm' : 'bg-red-50 text-red-600 border border-red-100 rounded-tl-sm shadow-sm'
             : darkMode 
               ? 'bg-gray-800/90 text-gray-100 border border-gray-700/50 rounded-tl-sm backdrop-blur-md shadow-lg' 
-              : 'bg-white/80 text-slate-800 border border-white rounded-tl-sm backdrop-blur-md shadow-[0_8px_30px_rgb(0,0,0,0.04)] ring-1 ring-slate-900/5'
+              : 'bg-white text-slate-800 border border-slate-100 rounded-tl-sm shadow-sm'
         }`}>
           {isUser ? (
-            <p className="whitespace-pre-wrap break-words leading-relaxed text-[15px]">{message.content}</p>
+            <p className="whitespace-pre-wrap break-words leading-relaxed text-[15px]">{formattedContent}</p>
           ) : (
-            <div className="markdown-content w-full overflow-hidden text-[15px] leading-7">
+            <div className="markdown-content w-full overflow-x-auto text-[15px] leading-7 custom-scrollbar">
               <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
-                {message.content || ''}
+                {formattedContent}
               </ReactMarkdown>
             </div>
           )}
         </div>
 
-        {!isUser && message.content && !isStreaming && (
+        {!isUser && formattedContent && !isStreaming && (
           <div className="flex items-center gap-2 mt-2 px-1">
             <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={handleCopy} className={`p-1.5 rounded-md transition-colors ${darkMode ? 'text-gray-400 hover:text-white hover:bg-gray-800' : 'text-slate-400 hover:text-teal-600 hover:bg-white shadow-sm'}`} title="Copy response">
               {copied ? <HiCheck className="w-4 h-4 text-teal-500" /> : <HiClipboardCopy className="w-4 h-4" />}
