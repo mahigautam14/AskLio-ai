@@ -16,6 +16,7 @@ import {
 } from 'react-icons/hi';
 import useStore from '../store/useStore';
 import { useChat } from '../hooks/useChat';
+import toast from 'react-hot-toast';
 
 export default function Sidebar() {
   const navigate = useNavigate();
@@ -42,76 +43,112 @@ export default function Sidebar() {
   const [menuOpen, setMenuOpen] = useState(null);
   const [editingId, setEditingId] = useState(null);
   const [editTitle, setEditTitle] = useState('');
+  const [busyId, setBusyId] = useState(null);
   const menuRef = useRef(null);
 
-  // Load list
   useEffect(() => {
     loadConversations();
   }, [loadConversations]);
 
-  // Debounced search
   useEffect(() => {
     const t = setTimeout(() => loadConversations(search), 300);
     return () => clearTimeout(t);
   }, [search, loadConversations]);
 
-  // Close ⋮ menu on outside click
+  // Outside click → close menu (but NOT while editing)
   useEffect(() => {
-    const onDown = (e) => {
-      if (menuRef.current && !menuRef.current.contains(e.target)) {
+    const onPointerDown = (e) => {
+      if (!menuRef.current) return;
+      if (!menuRef.current.contains(e.target)) {
         setMenuOpen(null);
       }
     };
-    document.addEventListener('mousedown', onDown);
-    return () => document.removeEventListener('mousedown', onDown);
+    document.addEventListener('pointerdown', onPointerDown);
+    return () => document.removeEventListener('pointerdown', onPointerDown);
   }, []);
 
-  // Lock body scroll when mobile drawer open
   useEffect(() => {
-    if (sidebarOpen) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-    }
+    document.body.style.overflow = sidebarOpen ? 'hidden' : '';
     return () => {
       document.body.style.overflow = '';
     };
   }, [sidebarOpen]);
 
   const handleLogoClick = () => {
-    // Logo = home, NO logout
     setSidebarOpen(false);
     navigate('/');
   };
 
   const handleNewChat = async () => {
-    await createNewChat();
-    setSidebarOpen(false);
-    setMenuOpen(null);
+    try {
+      await createNewChat();
+      setSidebarOpen(false);
+      setMenuOpen(null);
+    } catch {
+      toast.error('Could not create chat');
+    }
   };
 
   const handleSelect = (id) => {
+    if (editingId) return;
     loadConversation(id);
     setSidebarOpen(false);
     setMenuOpen(null);
   };
 
-  const handleRename = (id, title) => {
+  const startRename = (id, title, e) => {
+    e?.preventDefault?.();
+    e?.stopPropagation?.();
+    setMenuOpen(null);
     setEditingId(id);
-    setEditTitle(title?.trim() || 'New Chat');
-    setMenuOpen(null);
+    setEditTitle((title || '').trim() || 'New Chat');
   };
 
-  const submitRename = async (id) => {
-    if (editTitle.trim()) {
-      await renameConversation(id, editTitle.trim());
-    }
+  const cancelRename = () => {
     setEditingId(null);
+    setEditTitle('');
   };
 
-  const handleDelete = async (id) => {
+  const submitRename = async (id, e) => {
+    e?.preventDefault?.();
+    e?.stopPropagation?.();
+    const next = editTitle.trim();
+    if (!next) {
+      toast.error('Title cannot be empty');
+      return;
+    }
+    try {
+      setBusyId(id);
+      await renameConversation(id, next);
+      setEditingId(null);
+      setEditTitle('');
+      toast.success('Renamed');
+    } catch (err) {
+      console.error(err);
+      toast.error('Rename failed');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const handleDelete = async (id, e) => {
+    e?.preventDefault?.();
+    e?.stopPropagation?.();
     setMenuOpen(null);
-    await deleteConversation(id);
+
+    const ok = window.confirm('Delete this conversation?');
+    if (!ok) return;
+
+    try {
+      setBusyId(id);
+      await deleteConversation(id);
+      toast.success('Deleted');
+    } catch (err) {
+      console.error(err);
+      toast.error('Delete failed');
+    } finally {
+      setBusyId(null);
+    }
   };
 
   const handleLogout = () => {
@@ -126,7 +163,7 @@ export default function Sidebar() {
 
   const sidebarContent = (
     <div className={`flex h-full w-full flex-col border-r ${shell}`}>
-      {/* ===== TOP ===== */}
+      {/* TOP */}
       <div
         className={`shrink-0 p-4 border-b ${
           darkMode ? 'border-slate-700/50' : 'border-slate-200/80'
@@ -136,7 +173,7 @@ export default function Sidebar() {
           <button
             type="button"
             onClick={handleLogoClick}
-            className="flex min-w-0 items-center gap-3 text-left group"
+            className="flex min-w-0 items-center gap-3 text-left"
             title="Home"
           >
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-teal-400 to-blue-600 text-lg font-black text-white shadow-lg shadow-teal-500/25">
@@ -156,11 +193,10 @@ export default function Sidebar() {
             </div>
           </button>
 
-          {/* Mobile close */}
           <button
             type="button"
             onClick={() => setSidebarOpen(false)}
-            className={`md:hidden rounded-lg p-2 ${
+            className={`rounded-lg p-2 md:hidden ${
               darkMode
                 ? 'text-slate-400 hover:bg-slate-800'
                 : 'text-slate-500 hover:bg-slate-100'
@@ -181,7 +217,7 @@ export default function Sidebar() {
         </button>
       </div>
 
-      {/* ===== SEARCH ===== */}
+      {/* SEARCH */}
       <div className="shrink-0 px-3 pt-3 pb-2">
         <div className="relative">
           <HiSearch
@@ -190,7 +226,7 @@ export default function Sidebar() {
             }`}
           />
           <input
-            type="text"
+            type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search conversations..."
@@ -203,10 +239,10 @@ export default function Sidebar() {
         </div>
       </div>
 
-      {/* ===== LIST (only this scrolls) ===== */}
+      {/* LIST */}
       <div
         ref={menuRef}
-        className="custom-scrollbar min-h-0 flex-1 space-y-1 overflow-y-auto overflow-x-hidden px-2 pb-2"
+        className="custom-scrollbar min-h-0 flex-1 space-y-1 overflow-y-auto overflow-x-hidden px-2 pb-3"
       >
         {conversations.length === 0 ? (
           <p
@@ -219,10 +255,13 @@ export default function Sidebar() {
         ) : (
           conversations.map((conv) => {
             const active = activeConversationId === conv.id;
+            const isEditing = editingId === conv.id;
+            const isBusy = busyId === conv.id;
+
             return (
               <div
                 key={conv.id}
-                className={`group relative rounded-xl transition-colors ${
+                className={`relative rounded-xl transition-colors ${
                   active
                     ? darkMode
                       ? 'bg-slate-800 text-white'
@@ -230,38 +269,56 @@ export default function Sidebar() {
                     : darkMode
                     ? 'text-slate-300 hover:bg-slate-800/60'
                     : 'text-slate-600 hover:bg-slate-100'
-                }`}
+                } ${isBusy ? 'opacity-60 pointer-events-none' : ''}`}
               >
-                {editingId === conv.id ? (
-                  <div className="flex items-center gap-2 p-2">
+                {isEditing ? (
+                  <form
+                    className="flex items-center gap-1.5 p-2"
+                    onSubmit={(e) => submitRename(conv.id, e)}
+                  >
                     <input
                       autoFocus
                       value={editTitle}
                       onChange={(e) => setEditTitle(e.target.value)}
+                      onClick={(e) => e.stopPropagation()}
                       onKeyDown={(e) => {
-                        if (e.key === 'Enter') submitRename(conv.id);
-                        if (e.key === 'Escape') setEditingId(null);
+                        if (e.key === 'Escape') {
+                          e.preventDefault();
+                          cancelRename();
+                        }
                       }}
-                      className={`min-w-0 flex-1 rounded-lg px-2 py-1.5 text-sm outline-none ${
+                      className={`min-w-0 flex-1 rounded-lg px-2 py-1.5 text-sm outline-none ring-2 ring-teal-500/40 ${
                         darkMode
                           ? 'bg-slate-900 text-white'
-                          : 'border border-slate-200 bg-white'
+                          : 'border border-slate-200 bg-white text-slate-800'
                       }`}
                     />
                     <button
-                      type="button"
-                      onClick={() => submitRename(conv.id)}
-                      className="p-1.5 text-teal-500"
+                      type="submit"
+                      className="rounded-lg p-1.5 text-teal-500 hover:bg-teal-500/10"
+                      title="Save"
                     >
                       <HiCheck className="h-4 w-4" />
                     </button>
-                  </div>
+                    <button
+                      type="button"
+                      onClick={cancelRename}
+                      className={`rounded-lg p-1.5 ${
+                        darkMode
+                          ? 'text-slate-400 hover:bg-slate-700'
+                          : 'text-slate-400 hover:bg-slate-200'
+                      }`}
+                      title="Cancel"
+                    >
+                      <HiX className="h-4 w-4" />
+                    </button>
+                  </form>
                 ) : (
-                  <div className="flex items-center gap-2 px-2.5 py-2.5">
+                  <div className="flex items-center gap-1 px-1.5 py-1.5">
                     <button
                       type="button"
                       onClick={() => handleSelect(conv.id)}
-                      className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
+                      className="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg px-1.5 py-1.5 text-left"
                     >
                       <HiChat
                         className={`h-4 w-4 shrink-0 ${
@@ -273,15 +330,22 @@ export default function Sidebar() {
                       </span>
                     </button>
 
+                    {/* ⋮ always visible on mobile, hover on desktop */}
                     <button
                       type="button"
                       onClick={(e) => {
+                        e.preventDefault();
                         e.stopPropagation();
-                        setMenuOpen(menuOpen === conv.id ? null : conv.id);
+                        setMenuOpen((prev) =>
+                          prev === conv.id ? null : conv.id
+                        );
                       }}
-                      className={`shrink-0 rounded-md p-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 ${
+                      className={`shrink-0 rounded-lg p-2 transition ${
                         darkMode ? 'hover:bg-slate-700' : 'hover:bg-slate-200'
+                      } opacity-100 md:opacity-0 md:group-hover:opacity-100 ${
+                        menuOpen === conv.id ? 'md:opacity-100' : ''
                       }`}
+                      style={{ opacity: 1 }} // force visible — rename/delete ke liye zaroori
                       aria-label="Chat options"
                     >
                       <HiDotsVertical className="h-4 w-4" />
@@ -289,42 +353,52 @@ export default function Sidebar() {
                   </div>
                 )}
 
-                {/* Dropdown — opens upward if near bottom is complex; keep simple below item */}
-                {menuOpen === conv.id && (
-                  <div
-                    className={`absolute right-2 top-full z-[60] mt-1 w-36 overflow-hidden rounded-xl border py-1 shadow-xl ${
-                      darkMode
-                        ? 'border-slate-700 bg-slate-800'
-                        : 'border-slate-100 bg-white'
-                    }`}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => handleRename(conv.id, conv.title)}
-                      className={`flex w-full items-center gap-2 px-3 py-2 text-sm ${
+                {/* Dropdown menu */}
+                <AnimatePresence>
+                  {menuOpen === conv.id && !isEditing && (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.96, y: -4 }}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.96, y: -4 }}
+                      transition={{ duration: 0.12 }}
+                      className={`absolute right-2 top-[calc(100%-0.25rem)] z-[70] w-40 overflow-hidden rounded-xl border py-1 shadow-xl ${
                         darkMode
-                          ? 'text-white hover:bg-slate-700'
-                          : 'hover:bg-slate-50'
+                          ? 'border-slate-700 bg-slate-800'
+                          : 'border-slate-200 bg-white'
                       }`}
+                      onClick={(e) => e.stopPropagation()}
+                      onPointerDown={(e) => e.stopPropagation()}
                     >
-                      <HiPencil className="h-3.5 w-3.5" /> Rename
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(conv.id)}
-                      className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10"
-                    >
-                      <HiTrash className="h-3.5 w-3.5" /> Delete
-                    </button>
-                  </div>
-                )}
+                      <button
+                        type="button"
+                        onClick={(e) => startRename(conv.id, conv.title, e)}
+                        className={`flex w-full items-center gap-2 px-3 py-2.5 text-sm ${
+                          darkMode
+                            ? 'text-white hover:bg-slate-700'
+                            : 'text-slate-700 hover:bg-slate-50'
+                        }`}
+                      >
+                        <HiPencil className="h-4 w-4" />
+                        Rename
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => handleDelete(conv.id, e)}
+                        className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10"
+                      >
+                        <HiTrash className="h-4 w-4" />
+                        Delete
+                      </button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             );
           })
         )}
       </div>
 
-      {/* ===== FOOTER (fixed bottom of sidebar) ===== */}
+      {/* FOOTER */}
       <div
         className={`shrink-0 space-y-2 border-t p-3 ${
           darkMode ? 'border-slate-700/50' : 'border-slate-200/80'
@@ -384,12 +458,10 @@ export default function Sidebar() {
 
   return (
     <>
-      {/* Desktop: in-flow column, full height of parent (NOT extra 100vh) */}
       <aside className="relative z-20 hidden h-full w-72 shrink-0 md:flex">
         {sidebarContent}
       </aside>
 
-      {/* Mobile overlay */}
       <AnimatePresence>
         {sidebarOpen && (
           <motion.div
@@ -402,7 +474,6 @@ export default function Sidebar() {
         )}
       </AnimatePresence>
 
-      {/* Mobile drawer */}
       <aside
         className={`fixed inset-y-0 left-0 z-50 w-[min(20rem,85vw)] transform transition-transform duration-300 ease-out md:hidden ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
