@@ -1,63 +1,94 @@
-import { HiCode, HiLightBulb, HiPencilAlt, HiAcademicCap } from 'react-icons/hi';
-import lionLogo from "../assets/lio-jpg.jpg";
+import React from 'react';
+import { motion } from 'framer-motion';
+import { HiCode, HiLightBulb, HiPencilAlt, HiAcademicCap, HiSparkles } from 'react-icons/hi';
+import useStore from '../store/useStore';
 
-const suggestions = [
+const prompts = [
   {
-    icon: <HiCode className="w-5 h-5" />,
-    title: "💻 Build with Code",
-    prompt: "Create, debug, or improve your code",
+    title: 'Build with Code',
+    description: 'Create, debug, or improve your code',
+    icon: HiCode,
+    color: 'text-blue-500',
+    bg: 'bg-blue-500/10',
+    prompt: 'Help me write clean, working code. Ask what I want to build.',
   },
   {
-    icon: <HiLightBulb className="w-5 h-5" />,
-    title: "🧠 Explain Something",
-    prompt: "Break down complex topics into simple terms",
+    title: 'Explain Something',
+    description: 'Break down complex topics simply',
+    icon: HiLightBulb,
+    color: 'text-amber-500',
+    bg: 'bg-amber-500/10',
+    prompt: 'Explain a complex topic in simple language with examples.',
   },
   {
-    icon: <HiPencilAlt className="w-5 h-5" />,
-    title: "✍️ Write with Me",
-    prompt: "Draft emails, messages, posts, and more",
+    title: 'Write with Me',
+    description: 'Draft emails, messages, and posts',
+    icon: HiPencilAlt,
+    color: 'text-teal-500',
+    bg: 'bg-teal-500/10',
+    prompt: 'Help me write a clear and professional message.',
   },
   {
-    icon: <HiAcademicCap className="w-5 h-5" />,
-    title: "📚 Learn Something",
-    prompt: "Understand any topic with clear explanations",
+    title: 'Learn Something',
+    description: 'Understand any topic step by step',
+    icon: HiAcademicCap,
+    color: 'text-purple-500',
+    bg: 'bg-purple-500/10',
+    prompt: 'Teach me a topic step by step with a short example.',
   },
 ];
 
 export default function WelcomeScreen({ onSendMessage }) {
-  return (
-    <div className="flex-1 flex flex-col items-center justify-center px-4 py-8">
-      <div className="text-center mb-10">
-        <div className="w-18 h-18 rounded-3xl overflow-hidden bg-[#0f172a] flex items-center justify-center mx-auto mb-4 shadow-lg ring-2 ring-[#D4A43A]/30">
-          <img
-            src={lionLogo}
-            alt="Lio Logo"
-            className="w-full h-full object-cover"
-  />
-</div>
-        <h2 className="text-2xl md:text-3xl font-bold mb-2"> Hey, I'm Lio 👋</h2>
-        <p className="text-gray-500 dark:text-gray-400 text-sm md:text-base">
-          What can I help you with today?        </p>
-      </div>
+  const { darkMode } = useStore();
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 w-full max-w-2xl">
-        {suggestions.map((item, index) => (
-          <button
-            key={index}
-            onClick={() => onSendMessage(item.prompt)}
-            className="flex items-start gap-3 p-4 rounded-xl border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors text-left group"
-          >
-            <div className="text-teal-600 dark:text-teal-500 mt-0.5">
-              {item.icon}
-            </div>
-            <div>
-              <p className="font-medium text-sm mb-1">{item.title}</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2">
-                {item.prompt}
-              </p>
-            </div>
-          </button>
-        ))}
+  return (
+    <div className="flex h-full w-full flex-col items-center justify-center px-4 py-8 sm:px-6">
+      <motion.div
+        animate={{ y: [-4, 4, -4] }}
+        transition={{ repeat: Infinity, duration: 3.5, ease: 'easeInOut' }}
+        className="relative mb-6"
+      >
+        <div className="absolute inset-0 rounded-2xl bg-teal-400/30 blur-lg" />
+        <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-teal-400 to-blue-500 shadow-lg shadow-teal-500/25 border border-white/20">
+          <HiSparkles className="h-7 w-7 text-white" />
+        </div>
+      </motion.div>
+
+      <h1 className={`text-2xl sm:text-3xl font-extrabold tracking-tight text-center ${darkMode ? 'text-white' : 'text-slate-900'}`}>
+        Hey, I'm Lio <span className="inline-block">👋</span>
+      </h1>
+      <p className={`mt-2 mb-8 text-sm text-center ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+        What can I help you with today?
+      </p>
+
+      <div className="grid w-full max-w-2xl grid-cols-1 sm:grid-cols-2 gap-3">
+        {prompts.map((item) => {
+          const Icon = item.icon;
+          return (
+            <button
+              key={item.title}
+              type="button"
+              onClick={() => onSendMessage(item.prompt)}
+              className={`group flex h-[100px] items-start gap-3.5 rounded-2xl border p-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${
+                darkMode
+                  ? 'border-slate-700/40 bg-slate-800/40 hover:bg-slate-800/80 hover:border-teal-500/40'
+                  : 'border-slate-200/80 bg-white hover:border-teal-400/50 hover:bg-slate-50/50'
+              }`}
+            >
+              <div className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${item.bg} ${item.color} transition-transform group-hover:scale-110`}>
+                <Icon className="h-5 w-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h3 className={`text-[15px] font-semibold leading-5 ${darkMode ? 'text-slate-100' : 'text-slate-800'}`}>
+                  {item.title}
+                </h3>
+                <p className={`mt-1 text-xs leading-relaxed line-clamp-2 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                  {item.description}
+                </p>
+              </div>
+            </button>
+          );
+        })}
       </div>
     </div>
   );
