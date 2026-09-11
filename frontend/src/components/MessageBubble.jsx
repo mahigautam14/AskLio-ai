@@ -15,11 +15,7 @@ export default function MessageBubble({ message, isLast, onRegenerate, isStreami
 
   const isUser = message.role === 'user';
   const isError = typeof message.content === 'string' && message.content.startsWith('Error:');
-
-  // Raw <br> → real line breaks
-  const formattedContent = (message.content || '')
-    .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/\r\n/g, '\n');
+  const formattedContent = (message.content || '').replace(/<br\s*\/?>/gi, '\n');
 
   const handleCopy = async () => {
     try {
@@ -37,9 +33,7 @@ export default function MessageBubble({ message, isLast, onRegenerate, isStreami
       await navigator.clipboard.writeText(code);
       setCodeCopied((prev) => ({ ...prev, [index]: true }));
       toast.success('Code copied');
-      setTimeout(() => {
-        setCodeCopied((prev) => ({ ...prev, [index]: false }));
-      }, 1500);
+      setTimeout(() => setCodeCopied((prev) => ({ ...prev, [index]: false })), 1500);
     } catch {
       toast.error('Copy failed');
     }
@@ -47,180 +41,39 @@ export default function MessageBubble({ message, isLast, onRegenerate, isStreami
 
   let codeBlockIndex = 0;
 
-  // Shared text wrapping — NEVER break mid-word
-  const wrap =
-    'break-words [overflow-wrap:anywhere] [word-break:normal] [hyphens:none]';
-
   const markdownComponents = {
     p({ children }) {
-      return (
-        <p
-          className={`my-2.5 leading-7 ${wrap} ${
-            darkMode ? 'text-slate-200' : 'text-slate-700'
-          }`}
-        >
-          {children}
-        </p>
-      );
+      return <p className={`my-2 leading-7 ${darkMode ? 'text-slate-200' : 'text-slate-700'}`}>{children}</p>;
     },
     strong({ children }) {
-      return (
-        <strong className={`font-semibold ${darkMode ? 'text-white' : 'text-slate-900'}`}>
-          {children}
-        </strong>
-      );
-    },
-    em({ children }) {
-      return <em className="italic opacity-90">{children}</em>;
+      return <strong className={`font-semibold ${darkMode ? 'text-white' : 'text-slate-900'}`}>{children}</strong>;
     },
     ul({ children }) {
-      return (
-        <ul
-          className={`my-2.5 pl-5 list-disc space-y-1.5 ${wrap} ${
-            darkMode ? 'text-slate-200' : 'text-slate-700'
-          }`}
-        >
-          {children}
-        </ul>
-      );
+      return <ul className={`my-2 pl-5 list-disc space-y-1.5 ${darkMode ? 'text-slate-200' : 'text-slate-700'}`}>{children}</ul>;
     },
     ol({ children }) {
-      return (
-        <ol
-          className={`my-2.5 pl-5 list-decimal space-y-1.5 ${wrap} ${
-            darkMode ? 'text-slate-200' : 'text-slate-700'
-          }`}
-        >
-          {children}
-        </ol>
-      );
+      return <ol className={`my-2 pl-5 list-decimal space-y-1.5 ${darkMode ? 'text-slate-200' : 'text-slate-700'}`}>{children}</ol>;
     },
-    li({ children }) {
-      return <li className={`leading-7 ${wrap}`}>{children}</li>;
-    },
-    h1({ children }) {
-      return (
-        <h1 className={`text-xl font-bold mt-4 mb-2 ${wrap} ${darkMode ? 'text-white' : 'text-slate-900'}`}>
-          {children}
-        </h1>
-      );
-    },
-    h2({ children }) {
-      return (
-        <h2 className={`text-lg font-bold mt-4 mb-2 ${wrap} ${darkMode ? 'text-white' : 'text-slate-900'}`}>
-          {children}
-        </h2>
-      );
-    },
-    h3({ children }) {
-      return (
-        <h3 className={`text-base font-semibold mt-3 mb-1.5 ${wrap} ${darkMode ? 'text-white' : 'text-slate-900'}`}>
-          {children}
-        </h3>
-      );
-    },
-    blockquote({ children }) {
-      return (
-        <blockquote
-          className={`my-3 border-l-4 pl-4 italic ${wrap} ${
-            darkMode
-              ? 'border-teal-500/50 text-slate-300'
-              : 'border-teal-400 text-slate-600'
-          }`}
-        >
-          {children}
-        </blockquote>
-      );
-    },
-    a({ href, children }) {
-      return (
-        <a
-          href={href}
-          target="_blank"
-          rel="noreferrer"
-          className="text-teal-500 hover:text-teal-400 font-medium underline underline-offset-2"
-        >
-          {children}
-        </a>
-      );
-    },
-    hr() {
-      return (
-        <hr
-          className={`my-4 border-t ${
-            darkMode ? 'border-slate-700' : 'border-slate-200'
-          }`}
-        />
-      );
-    },
-
-    /* ========== TABLES (main fix for broken words) ========== */
     table({ children }) {
       return (
-        <div
-          className={`w-full max-w-full my-4 overflow-x-auto rounded-xl border custom-scrollbar ${
-            darkMode ? 'border-slate-700/70' : 'border-slate-200'
-          }`}
-        >
-          <table className="w-max min-w-full border-collapse text-left text-[13px] sm:text-sm">
-            {children}
-          </table>
+        <div className={`w-full max-w-full my-4 overflow-x-auto rounded-xl border custom-scrollbar ${darkMode ? 'border-slate-700/50' : 'border-slate-200'}`}>
+          <table className="w-full min-w-[500px] border-collapse text-left text-[14px]">{children}</table>
         </div>
       );
     },
     thead({ children }) {
-      return (
-        <thead
-          className={
-            darkMode
-              ? 'bg-slate-800/90 text-teal-300'
-              : 'bg-slate-50 text-slate-800'
-          }
-        >
-          {children}
-        </thead>
-      );
-    },
-    tbody({ children }) {
-      return <tbody>{children}</tbody>;
-    },
-    tr({ children }) {
-      return (
-        <tr
-          className={
-            darkMode
-              ? 'border-b border-slate-700/60 last:border-0'
-              : 'border-b border-slate-200 last:border-0'
-          }
-        >
-          {children}
-        </tr>
-      );
+      return <thead className={darkMode ? 'bg-slate-800/80 text-teal-300' : 'bg-slate-50 text-slate-800'}>{children}</thead>;
     },
     th({ children }) {
-      return (
-        <th
-          className={`px-3 sm:px-4 py-2.5 font-semibold whitespace-nowrap align-top ${
-            darkMode ? 'text-teal-300' : 'text-slate-800'
-          }`}
-        >
-          {children}
-        </th>
-      );
+      return <th className={`px-4 py-3 font-semibold whitespace-nowrap border-b ${darkMode ? 'border-slate-700/50' : 'border-slate-200'}`}>{children}</th>;
     },
     td({ children }) {
       return (
-        <td
-          className={`px-3 sm:px-4 py-2.5 align-top ${wrap} min-w-[8rem] max-w-[28rem] ${
-            darkMode ? 'text-slate-300' : 'text-slate-600'
-          }`}
-        >
-          {children}
+        <td className={`px-4 py-3 align-top border-b ${darkMode ? 'border-slate-700/50 text-slate-300' : 'border-slate-200 text-slate-600'}`}>
+          <div className="[&_p]:my-1 [&_ul]:my-1 [&_ul]:pl-4 [&_ol]:my-1 [&_ol]:pl-4">{children}</div>
         </td>
       );
     },
-
-    /* ========== CODE ========== */
     code({ className, children, ...props }) {
       const text = String(children).replace(/\n$/, '');
       const match = /language-(\w+)/.exec(className || '');
@@ -230,33 +83,11 @@ export default function MessageBubble({ message, isLast, onRegenerate, isStreami
         const currentIndex = codeBlockIndex++;
         const lang = match ? match[1] : 'text';
         return (
-          <div
-            className={`my-3 w-full max-w-full overflow-hidden rounded-xl border shadow-sm ${
-              darkMode ? 'border-slate-700/70' : 'border-slate-200'
-            }`}
-          >
-            <div
-              className={`flex items-center justify-between gap-3 text-xs px-3 sm:px-4 py-2 ${
-                darkMode
-                  ? 'bg-slate-900/90 text-slate-400'
-                  : 'bg-slate-100 text-slate-600'
-              }`}
-            >
+          <div className={`my-3 w-full max-w-full overflow-hidden rounded-xl border shadow-sm ${darkMode ? 'border-slate-700/50' : 'border-slate-200'}`}>
+            <div className={`flex items-center justify-between gap-3 text-xs px-4 py-2 ${darkMode ? 'bg-slate-900/90 text-slate-400' : 'bg-slate-100 text-slate-600'}`}>
               <span className="font-mono uppercase tracking-wider">{lang}</span>
-              <button
-                type="button"
-                onClick={() => handleCodeCopy(text, currentIndex)}
-                className="flex items-center gap-1.5 hover:text-teal-400 transition-colors shrink-0"
-              >
-                {codeCopied[currentIndex] ? (
-                  <>
-                    <HiCheck className="w-3.5 h-3.5 text-teal-400" /> Copied
-                  </>
-                ) : (
-                  <>
-                    <HiClipboardCopy className="w-3.5 h-3.5" /> Copy
-                  </>
-                )}
+              <button type="button" onClick={() => handleCodeCopy(text, currentIndex)} className="flex items-center gap-1 hover:text-teal-500 transition-colors shrink-0">
+                {codeCopied[currentIndex] ? <><HiCheck className="h-3.5 w-3.5" /> Copied</> : <><HiClipboardCopy className="h-3.5 w-3.5" /> Copy</>}
               </button>
             </div>
             <div className="overflow-x-auto custom-scrollbar">
@@ -264,22 +95,7 @@ export default function MessageBubble({ message, isLast, onRegenerate, isStreami
                 style={darkMode ? oneDark : oneLight}
                 language={lang}
                 PreTag="div"
-                customStyle={{
-                  margin: 0,
-                  padding: '0.9rem 1rem',
-                  fontSize: '0.82rem',
-                  background: darkMode ? '#0f172a' : '#ffffff',
-                  whiteSpace: 'pre',
-                  wordBreak: 'normal',
-                  overflowWrap: 'normal',
-                }}
-                codeTagProps={{
-                  style: {
-                    whiteSpace: 'pre',
-                    wordBreak: 'normal',
-                    fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
-                  },
-                }}
+                customStyle={{ margin: 0, padding: '1rem', fontSize: '0.85rem', background: darkMode ? '#0f172a' : '#ffffff' }}
                 {...props}
               >
                 {text}
@@ -288,16 +104,8 @@ export default function MessageBubble({ message, isLast, onRegenerate, isStreami
           </div>
         );
       }
-
       return (
-        <code
-          className={`px-1.5 py-0.5 rounded text-[0.85em] font-mono whitespace-nowrap ${
-            darkMode
-              ? 'bg-slate-800 text-teal-300'
-              : 'bg-slate-100 text-teal-700 border border-slate-200'
-          }`}
-          {...props}
-        >
+        <code className={`px-1.5 py-0.5 rounded text-[0.85em] font-mono whitespace-nowrap ${darkMode ? 'bg-slate-800 text-teal-300' : 'bg-slate-100 text-teal-700 border border-slate-200'}`} {...props}>
           {children}
         </code>
       );
@@ -308,101 +116,57 @@ export default function MessageBubble({ message, isLast, onRegenerate, isStreami
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.25, ease: 'easeOut' }}
-      className={`w-full flex py-3 sm:py-4 px-3 sm:px-6 ${
-        isUser ? 'justify-end' : 'justify-start'
-      }`}
+      transition={{ duration: 0.2 }}
+      className={`w-full flex py-4 px-4 sm:px-6 ${isUser ? 'justify-end' : 'justify-start'}`}
     >
-      {/* AI avatar */}
       {!isUser && (
-        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center text-white text-sm font-bold shrink-0 mt-1 mr-2.5 sm:mr-3 shadow-md shadow-teal-500/20">
+        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center text-white text-sm font-bold shrink-0 mt-1 mr-3 shadow-md shadow-teal-500/20">
           L
         </div>
       )}
 
-      <div
-        className={`flex flex-col min-w-0 ${
-          isUser ? 'items-end' : 'items-start'
-        } max-w-[calc(100%-2.75rem)] sm:max-w-[min(100%,42rem)] md:max-w-[min(100%,46rem)]`}
-      >
-        {/* Bubble */}
+      <div className={`flex flex-col min-w-0 ${isUser ? 'items-end' : 'items-start'} max-w-[calc(100%-2.5rem)] sm:max-w-[80%]`}>
         <div
-          className={`w-full min-w-0 px-3.5 sm:px-5 py-3 sm:py-3.5 rounded-2xl text-[14px] sm:text-[15px] leading-7 ${
+          className={`w-full min-w-0 px-4 sm:px-5 py-3.5 rounded-2xl text-[14.5px] leading-7 ${
             isUser
               ? 'bg-gradient-to-r from-teal-500 to-teal-600 text-white rounded-tr-md shadow-md shadow-teal-500/15'
               : isError
               ? darkMode
-                ? 'bg-red-950/40 text-red-300 border border-red-800/40 rounded-tl-md'
-                : 'bg-red-50 text-red-600 border border-red-100 rounded-tl-md'
+                ? 'bg-red-950/40 text-red-300 border border-red-800/40'
+                : 'bg-red-50 text-red-600 border border-red-100'
               : darkMode
-              ? 'bg-slate-800/90 text-slate-100 border border-slate-700/50 rounded-tl-md shadow-lg'
-              : 'bg-white text-slate-800 border border-slate-200/90 rounded-tl-md shadow-sm'
+              ? 'bg-[#151b2b] text-slate-100 border border-slate-700/50 shadow-md'
+              : 'bg-white text-slate-800 border border-slate-200/80 shadow-sm'
           }`}
         >
           {isUser ? (
-            <p className={`whitespace-pre-wrap ${wrap} leading-relaxed`}>
-              {formattedContent}
-            </p>
+            <p className="whitespace-pre-wrap break-words leading-relaxed">{formattedContent}</p>
           ) : (
-            <div className={`markdown-body w-full min-w-0 ${wrap}`}>
-              <ReactMarkdown
-                remarkPlugins={[remarkGfm]}
-                components={markdownComponents}
-              >
+            <div className="markdown-body w-full min-w-0 break-words [word-break:normal] [overflow-wrap:anywhere]">
+              <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
                 {formattedContent}
               </ReactMarkdown>
-              {isStreaming && (
-                <span className="inline-block w-1.5 h-4 ml-0.5 align-middle bg-teal-400 animate-pulse rounded-sm" />
-              )}
+              {isStreaming && <span className="inline-block w-1.5 h-4 ml-1 align-middle bg-teal-400 animate-pulse rounded-sm" />}
             </div>
           )}
         </div>
 
-        {/* Actions */}
         {!isUser && formattedContent && !isStreaming && (
-          <div className="flex items-center gap-1 mt-1.5 px-0.5">
-            <motion.button
-              type="button"
-              whileHover={{ scale: 1.08 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={handleCopy}
-              className={`p-1.5 rounded-lg transition-colors ${
-                darkMode
-                  ? 'text-slate-500 hover:text-white hover:bg-slate-800'
-                  : 'text-slate-400 hover:text-teal-600 hover:bg-white'
-              }`}
-              title="Copy"
-            >
-              {copied ? (
-                <HiCheck className="w-4 h-4 text-teal-500" />
-              ) : (
-                <HiClipboardCopy className="w-4 h-4" />
-              )}
-            </motion.button>
-
+          <div className="flex items-center gap-1 mt-1.5 px-1">
+            <button onClick={handleCopy} className={`p-1.5 rounded-lg transition-colors ${darkMode ? 'text-slate-500 hover:text-white hover:bg-slate-800' : 'text-slate-400 hover:text-teal-600 hover:bg-white'}`} title="Copy">
+              {copied ? <HiCheck className="h-4 w-4 text-teal-500" /> : <HiClipboardCopy className="h-4 w-4" />}
+            </button>
             {isLast && onRegenerate && (
-              <motion.button
-                type="button"
-                whileHover={{ scale: 1.08, rotate: 20 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={onRegenerate}
-                className={`p-1.5 rounded-lg transition-colors ${
-                  darkMode
-                    ? 'text-slate-500 hover:text-white hover:bg-slate-800'
-                    : 'text-slate-400 hover:text-teal-600 hover:bg-white'
-                }`}
-                title="Regenerate"
-              >
-                <HiRefresh className="w-4 h-4" />
-              </motion.button>
+              <button onClick={onRegenerate} className={`p-1.5 rounded-lg transition-colors ${darkMode ? 'text-slate-500 hover:text-white hover:bg-slate-800' : 'text-slate-400 hover:text-teal-600 hover:bg-white'}`} title="Regenerate">
+                <HiRefresh className="h-4 w-4" />
+              </button>
             )}
           </div>
         )}
       </div>
 
-      {/* User avatar */}
       {isUser && (
-        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-slate-600 to-slate-800 flex items-center justify-center text-white text-sm font-bold shrink-0 mt-1 ml-2.5 sm:ml-3 shadow-md">
+        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-slate-600 to-slate-800 flex items-center justify-center text-white text-sm font-bold shrink-0 mt-1 ml-3 shadow-md">
           U
         </div>
       )}
