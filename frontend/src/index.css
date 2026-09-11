@@ -16,22 +16,6 @@
   * {
     @apply border-gray-200 dark:border-gray-700;
   }
-
-  ::-webkit-scrollbar {
-    width: 6px;
-  }
-
-  ::-webkit-scrollbar-track {
-    @apply bg-transparent;
-  }
-
-  ::-webkit-scrollbar-thumb {
-    @apply bg-gray-300 dark:bg-gray-600 rounded-full;
-  }
-
-  ::-webkit-scrollbar-thumb:hover {
-    @apply bg-gray-400 dark:bg-gray-500;
-  }
 }
 
 @layer components {
@@ -64,122 +48,92 @@
   }
 }
 
+/* Typing dots */
 .typing-indicator span {
   animation: blink 1.4s infinite both;
 }
-
 .typing-indicator span:nth-child(2) {
   animation-delay: 0.2s;
 }
-
 .typing-indicator span:nth-child(3) {
   animation-delay: 0.4s;
 }
-
 @keyframes blink {
-  0%,
-  80%,
-  100% {
-    opacity: 0;
-  }
-  40% {
-    opacity: 1;
-  }
+  0%, 80%, 100% { opacity: 0; }
+  40% { opacity: 1; }
 }
 
+/* Markdown helpers */
 pre {
   @apply rounded-lg overflow-x-auto my-2;
 }
-
 code {
   @apply text-sm;
 }
-
 p > code {
   @apply bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded text-sm font-mono;
 }
-
-.markdown-content {
-  word-break: break-word;
+.markdown-content,
+.markdown-body {
+  word-break: normal;
   overflow-wrap: anywhere;
 }
-
-.markdown-content table {
+.markdown-content table,
+.markdown-body table {
   width: 100%;
 }
 
-.markdown-content pre {
-  margin: 0;
+/* 🌈 Blob background animation */
+@keyframes blob {
+  0%   { transform: translate(0px, 0px) scale(1); }
+  33%  { transform: translate(30px, -40px) scale(1.08); }
+  66%  { transform: translate(-20px, 20px) scale(0.94); }
+  100% { transform: translate(0px, 0px) scale(1); }
 }
-
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-/* Blob animation delay helpers */
+.animate-blob {
+  animation: blob 12s ease-in-out infinite;
+}
 .animation-delay-2000 {
   animation-delay: 2s;
 }
 .animation-delay-4000 {
   animation-delay: 4s;
 }
+.animation-delay-6000 {
+  animation-delay: 6s;
+}
 
-/* Smooth custom scrollbar */
+/* Custom scrollbar */
 .custom-scrollbar::-webkit-scrollbar {
   width: 5px;
+  height: 5px;
 }
 .custom-scrollbar::-webkit-scrollbar-track {
   background: transparent;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb {
   background: rgba(100, 116, 139, 0.4);
-  border-radius: 10px;
+  border-radius: 99px;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(100, 116, 139, 0.7);
+  background: rgba(100, 116, 139, 0.65);
 }
 
-/* Message enter animation */
+/* Message enter */
 @keyframes messageIn {
-  from {
-    opacity: 0;
-    transform: translateY(12px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 .animate-message-in {
   animation: messageIn 0.35s ease-out forwards;
 }
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-/* Blob animation */
-@keyframes blob {
-  0% { transform: translate(0px, 0px) scale(1); }
-  33% { transform: translate(30px, -50px) scale(1.1); }
-  66% { transform: translate(-20px, 20px) scale(0.9); }
-  100% { transform: translate(0px, 0px) scale(1); }
+/* iPhone glass helpers */
+.glass-header {
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
 }
-.animate-blob {
-  animation: blob 9s infinite;
-}
-.animation-delay-2000 {
-  animation-delay: 2s;
-}
-.animation-delay-4000 {
-  animation-delay: 4s;
-}
-
-/* Scrollbar */
-.custom-scrollbar::-webkit-scrollbar {
-  width: 5px;
-}
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(100, 116, 139, 0.45);
-  border-radius: 99px;
+.glass-footer {
+  backdrop-filter: saturate(180%) blur(22px);
+  -webkit-backdrop-filter: saturate(180%) blur(22px);
 }
