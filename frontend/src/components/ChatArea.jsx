@@ -8,70 +8,81 @@ import useStore from '../store/useStore';
 import { useChat } from '../hooks/useChat';
 
 export default function ChatArea() {
-  const { messages, isStreaming, isLoading, setSidebarOpen } = useStore();
-  const { sendMessage, regenerateResponse, activeConversationId } = useChat();
-  const messagesEndRef = useRef(null);
+  const { messages, isStreaming, isLoading, setSidebarOpen, darkMode, activeConversationId } = useStore();
+  const { sendMessage, regenerateResponse } = useChat();
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
+  const messagesEndRef = useRef(null);
+  const wasStreamingRef = useRef(false);
+  const prevMsgLengthRef = useRef(0);
 
   useEffect(() => {
-    scrollToBottom();
+    const wasStreaming = wasStreamingRef.current;
+    const isNowStreaming = isStreaming;
+    const hasNewUserMessage = 
+      messages.length > prevMsgLengthRef.current && 
+      messages[messages.length - 1]?.role === 'user';
+
+    if (hasNewUserMessage) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    if (wasStreaming && !isNowStreaming) {
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+      }, 150);
+    }
+
+    wasStreamingRef.current = isStreaming;
+    prevMsgLengthRef.current = messages.length;
   }, [messages, isStreaming]);
 
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
+  }, [activeConversationId]);
+
   const showWelcome = messages.length === 0 && !isLoading;
+  const showTyping = isStreaming && messages.length > 0 && messages[messages.length - 1]?.role === 'assistant' && !messages[messages.length - 1]?.content;
 
   return (
-    <div className="flex-1 flex flex-col h-screen">
-      {/* Header */}
-      <header className="border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-4 py-3 flex items-center gap-3 shrink-0">
-        <button
-          onClick={() => setSidebarOpen(true)}
-          className="md:hidden btn-ghost"
-        >
-          <HiMenuAlt2 className="w-5 h-5" />
+    <div className="relative flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+      <header className={`sticky top-0 z-30 flex shrink-0 items-center gap-2 border-b px-3 py-3 backdrop-blur-xl sm:px-4 ${darkMode ? 'border-slate-700/40 bg-[#0B1120]/90' : 'border-slate-200/70 bg-white/90'}`}>
+        <button type="button" onClick={() => setSidebarOpen(true)} className={`rounded-xl p-2 md:hidden ${darkMode ? 'text-slate-200 hover:bg-slate-800' : 'text-slate-700 hover:bg-slate-100'}`}>
+          <HiMenuAlt2 className="h-6 w-6" />
         </button>
-        <h2 className="font-semibold text-sm truncate">
-          {activeConversationId ? 'Chat' : 'New Chat'}
-        </h2>
+        <div className="min-w-0 flex-1">
+          <h2 className={`truncate text-sm font-semibold sm:text-base ${darkMode ? 'text-white' : 'text-slate-800'}`}>
+            {activeConversationId ? 'Chat' : 'New Chat'}
+          </h2>
+        </div>
       </header>
 
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="custom-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden">
         {isLoading ? (
-          <div className="flex items-center justify-center h-full">
-            <div className="animate-spin w-8 h-8 border-4 border-teal-600 border-t-transparent rounded-full" />
+          <div className="flex flex-1 items-center justify-center">
+            <div className="h-9 w-9 animate-spin rounded-full border-[3px] border-teal-500 border-t-transparent" />
           </div>
         ) : showWelcome ? (
-          <WelcomeScreen onSendMessage={sendMessage} />
+          <div className="flex flex-1 items-center justify-center">
+            <WelcomeScreen onSendMessage={sendMessage} />
+          </div>
         ) : (
-          <div className="max-w-3xl mx-auto">
-            {messages.map((message, index) => (
-              <MessageBubble
-                key={message.id || index}
-                message={message}
-                isLast={index === messages.length - 1}
-                onRegenerate={
-                  index === messages.length - 1 && message.role === 'assistant'
-                    ? regenerateResponse
-                    : undefined
-                }
-                isStreaming={isStreaming && index === messages.length - 1 && message.role === 'assistant'}
-              />
-            ))}
-            {isStreaming && messages.length > 0 && 
-             messages[messages.length - 1]?.role === 'assistant' && 
-             messages[messages.length - 1]?.content === '' && (
-              <TypingIndicator />
-            )}
-            <div ref={messagesEndRef} />
+          <div className="mx-auto w-full max-w-4xl flex-1 px-0 pb-4 pt-2">
+            {messages.map((message, index) => {
+              const isLast = index === messages.length - 1;
+              const isAssistantStreaming = isStreaming && isLast && message.role === 'assistant';
+              return (
+                <MessageBubble key={message.id || `msg-${index}`} message={message} isLast={isLast} onRegenerate={isLast && message.role === 'assistant' && !isStreaming ? regenerateResponse : undefined} isStreaming={isAssistantStreaming} />
+              );
+            })}
+            {showTyping && <TypingIndicator />}
+            <div ref={messagesEndRef} className="h-4" />
           </div>
         )}
       </div>
 
-      {/* Composer */}
-      <MessageComposer onSend={sendMessage} disabled={isStreaming} />
+      <div className="shrink-0">
+        <MessageComposer onSend={sendMessage} disabled={isStreaming || isLoading} />
+      </div>
     </div>
   );
 }
